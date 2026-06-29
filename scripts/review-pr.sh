@@ -157,8 +157,10 @@ if [ "$CURRENT_HEAD_SHA" != "$HEAD_SHA" ]; then
   exit 1
 fi
 
-gh pr review "$PR_NUMBER" --repo "$SUITE_REPO" --approve \
-  --body "Automated host review passed for ${HEAD_SHA}: review policy, sandboxed bootstrap, sandboxed preflight, and all 19 sandboxed test gates completed successfully."
+if ! gh pr review "$PR_NUMBER" --repo "$SUITE_REPO" --approve \
+  --body "Automated host review passed for ${HEAD_SHA}: review policy, sandboxed bootstrap, sandboxed preflight, and all 19 sandboxed test gates completed successfully."; then
+  echo "[review-pr] unable to approve PR; continuing because status checks are authoritative" >&2
+fi
 
 set_commit_status success "Automated host review passed all 19 gates."
 
