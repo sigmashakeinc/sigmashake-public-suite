@@ -1,0 +1,213 @@
+{
+  "version": 1,
+  "bootstrap": [
+    {
+      "id": "install",
+      "name": "Install component dependencies",
+      "commands": [
+        { "service": "mmo", "cwd": "services/mmo", "cmd": "bun install --frozen-lockfile" },
+        { "service": "abyss", "cwd": "services/abyss", "cmd": "bun install --frozen-lockfile" },
+        { "service": "vcs", "cwd": "services/vcs", "cmd": "bun install --frozen-lockfile" }
+      ]
+    }
+  ],
+  "preflight": [
+    {
+      "id": "suite-syntax",
+      "name": "Suite automation syntax",
+      "commands": [
+        { "service": "suite", "cwd": ".", "cmd": "node --check scripts/run-gates.mjs" },
+        { "service": "suite", "cwd": ".", "cmd": "node --check scripts/review-policy.mjs" },
+        { "service": "suite", "cwd": ".", "cmd": "bash -lc 'for f in scripts/*.sh; do bash -n \"$f\"; done'" }
+      ]
+    },
+    {
+      "id": "typecheck",
+      "name": "Service typechecks",
+      "commands": [
+        { "service": "mmo", "cwd": "services/mmo", "cmd": "bun run typecheck" },
+        { "service": "abyss", "cwd": "services/abyss", "cmd": "bun run typecheck" },
+        { "service": "vcs", "cwd": "services/vcs", "cmd": "bun run typecheck" }
+      ]
+    },
+    {
+      "id": "lint",
+      "name": "Service lint",
+      "commands": [
+        { "service": "mmo", "cwd": "services/mmo", "cmd": "bunx @biomejs/biome@2.4.15 check ." },
+        { "service": "abyss", "cwd": "services/abyss", "cmd": "bunx @biomejs/biome@2.4.15 check ." },
+        { "service": "vcs", "cwd": "services/vcs", "cmd": "bunx @biomejs/biome@2.4.15 check ." }
+      ]
+    }
+  ],
+  "tests": [
+    {
+      "id": "unit",
+      "name": "Unit tests",
+      "commands": [
+        { "service": "mmo", "cwd": "services/mmo", "cmd": "bun run test:unit" },
+        { "service": "abyss", "cwd": "services/abyss", "cmd": "bun run test" },
+        { "service": "vcs", "cwd": "services/vcs", "cmd": "bun run test" }
+      ]
+    },
+    {
+      "id": "api",
+      "name": "API tests",
+      "commands": [
+        { "service": "mmo", "cwd": "services/mmo", "cmd": "bun run test:api" },
+        { "service": "vcs", "cwd": "services/vcs", "cmd": "bun run test:api" }
+      ]
+    },
+    {
+      "id": "component",
+      "name": "Component tests",
+      "commands": [
+        { "service": "mmo", "cwd": "services/mmo", "cmd": "bun run test:component" },
+        { "service": "abyss", "cwd": "services/abyss", "cmd": "bun run test:component" },
+        { "service": "vcs", "cwd": "services/vcs", "cmd": "bun run test:component" }
+      ]
+    },
+    {
+      "id": "integration",
+      "name": "Integration tests",
+      "commands": [
+        { "service": "vcs", "cwd": "services/vcs", "cmd": "bun run test:integration" }
+      ]
+    },
+    {
+      "id": "e2e",
+      "name": "End-to-end tests",
+      "commands": [
+        { "service": "abyss", "cwd": "services/abyss", "cmd": "bun run test:e2e" },
+        { "service": "vcs", "cwd": "services/vcs", "cmd": "bun run test:e2e" }
+      ]
+    },
+    {
+      "id": "regression",
+      "name": "Regression tests",
+      "commands": [
+        { "service": "mmo", "cwd": "services/mmo", "cmd": "bun run test:regression" },
+        { "service": "abyss", "cwd": "services/abyss", "cmd": "bun run test:regression" },
+        { "service": "vcs", "cwd": "services/vcs", "cmd": "bun run test:regression" }
+      ]
+    },
+    {
+      "id": "configuration",
+      "name": "Configuration tests",
+      "commands": [
+        { "service": "mmo", "cwd": "services/mmo", "cmd": "bun run test:configuration" },
+        { "service": "vcs", "cwd": "services/vcs", "cmd": "bun run test:configuration" }
+      ]
+    },
+    {
+      "id": "dependencies",
+      "name": "Dependency audit tests",
+      "commands": [
+        { "service": "mmo", "cwd": "services/mmo", "cmd": "bun run test:audit" },
+        { "service": "vcs", "cwd": "services/vcs", "cmd": "bun run test:audit" }
+      ]
+    },
+    {
+      "id": "sast",
+      "name": "Static application security tests",
+      "commands": [
+        { "service": "mmo", "cwd": "services/mmo", "cmd": "bun run test:sast" },
+        { "service": "abyss", "cwd": "services/abyss", "cmd": "bun run test:sast" },
+        { "service": "vcs", "cwd": "services/vcs", "cmd": "bun run test:sast" }
+      ]
+    },
+    {
+      "id": "dast",
+      "name": "Dynamic application security tests",
+      "commands": [
+        { "service": "mmo", "cwd": "services/mmo", "cmd": "bun run test:dast" },
+        { "service": "abyss", "cwd": "services/abyss", "cmd": "bun run test:dast" },
+        { "service": "vcs", "cwd": "services/vcs", "cmd": "bun run test:dast" }
+      ]
+    },
+    {
+      "id": "penetration",
+      "name": "Penetration tests",
+      "commands": [
+        { "service": "mmo", "cwd": "services/mmo", "cmd": "bun run test:pen" },
+        { "service": "abyss", "cwd": "services/abyss", "cmd": "bun run test:pen" },
+        { "service": "vcs", "cwd": "services/vcs", "cmd": "bun run test:pen" }
+      ]
+    },
+    {
+      "id": "load",
+      "name": "Load tests",
+      "heavy": true,
+      "commands": [
+        { "service": "mmo", "cwd": "services/mmo", "cmd": "bun run test:load" },
+        { "service": "abyss", "cwd": "services/abyss", "cmd": "bun run test:load" },
+        { "service": "vcs", "cwd": "services/vcs", "cmd": "bun run test:load" }
+      ]
+    },
+    {
+      "id": "stress",
+      "name": "Stress tests",
+      "heavy": true,
+      "commands": [
+        { "service": "mmo", "cwd": "services/mmo", "cmd": "bun run test:stress" },
+        { "service": "abyss", "cwd": "services/abyss", "cmd": "bun run test:stress" },
+        { "service": "vcs", "cwd": "services/vcs", "cmd": "bun run test:stress" }
+      ]
+    },
+    {
+      "id": "spike",
+      "name": "Spike tests",
+      "heavy": true,
+      "commands": [
+        { "service": "mmo", "cwd": "services/mmo", "cmd": "bun run test:spike" },
+        { "service": "abyss", "cwd": "services/abyss", "cmd": "bun run test:spike" },
+        { "service": "vcs", "cwd": "services/vcs", "cmd": "bun run test:spike" }
+      ]
+    },
+    {
+      "id": "soak",
+      "name": "Soak tests",
+      "heavy": true,
+      "commands": [
+        { "service": "mmo", "cwd": "services/mmo", "cmd": "bun run test:soak" },
+        { "service": "abyss", "cwd": "services/abyss", "cmd": "bun run test:soak" },
+        { "service": "vcs", "cwd": "services/vcs", "cmd": "bun run test:soak" }
+      ]
+    },
+    {
+      "id": "scalability",
+      "name": "Scalability tests",
+      "heavy": true,
+      "commands": [
+        { "service": "mmo", "cwd": "services/mmo", "cmd": "bun run test:scalability" },
+        { "service": "abyss", "cwd": "services/abyss", "cmd": "bun run test:scale" },
+        { "service": "vcs", "cwd": "services/vcs", "cmd": "bun run test:scale" }
+      ]
+    },
+    {
+      "id": "chaos",
+      "name": "Chaos tests",
+      "commands": [
+        { "service": "mmo", "cwd": "services/mmo", "cmd": "bun run test:chaos" },
+        { "service": "abyss", "cwd": "services/abyss", "cmd": "bun run test:chaos" },
+        { "service": "vcs", "cwd": "services/vcs", "cmd": "bun run test:chaos" }
+      ]
+    },
+    {
+      "id": "failover",
+      "name": "Failover tests",
+      "commands": [
+        { "service": "mmo", "cwd": "services/mmo", "cmd": "bun run test:failover" },
+        { "service": "abyss", "cwd": "services/abyss", "cmd": "bun run test:failover" },
+        { "service": "vcs", "cwd": "services/vcs", "cmd": "bun run test:failover" }
+      ]
+    },
+    {
+      "id": "disaster-recovery",
+      "name": "Disaster recovery tests",
+      "commands": [
+        { "service": "abyss", "cwd": "services/abyss", "cmd": "bun run test:dr" }
+      ]
+    }
+  ]
+}

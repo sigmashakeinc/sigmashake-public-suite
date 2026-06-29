@@ -1,0 +1,12 @@
+node_modules/
+dist/
+.wrangler/
+.sigmashake/
+.env
+.env.*
+coverage/
+tmp/
+services/*/.wrangler/
+services/*/node_modules/
+services/*/dist/
+services/mmo/data/

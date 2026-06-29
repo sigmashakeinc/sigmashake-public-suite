@@ -1,0 +1,4 @@
+OpenGameArt.org Share-Alike 3.0 (OGA-SA 3.0)
+
+Reference: https://opengameart.org/content/oga-share-alike-30
+Share-alike: derivatives of OGA-SA assets must be distributed under the same terms; attribution per ../static/assets/lpc/CREDITS-LPC.md and CREDITS.csv.

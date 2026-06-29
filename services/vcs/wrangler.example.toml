@@ -1,0 +1,91 @@
+# wrangler.example.toml — PUBLIC MIRROR TEMPLATE
+#
+# Replace every <PLACEHOLDER_...> token with your actual values before deploying.
+# This file is a sanitised twin of wrangler.toml. The real wrangler.toml is NOT
+# included in the public mirror — it contains live KV namespace IDs and service
+# binding names specific to the SigmaShake deployment.
+
+name = "sigmashake-vcs"
+main = "src/index.ts"
+compatibility_date = "2026-03-01"
+
+[[routes]]
+# Set to your Worker's custom domain, e.g. vcs.yourdomain.com
+pattern = "<PLACEHOLDER_CUSTOM_DOMAIN>"
+custom_domain = true
+
+# ── Durable Object: per-broadcaster bridge hub + RPC dispatcher ───────────────
+[durable_objects]
+bindings = [
+  { name = "VCS_ROOM", class_name = "VcsRoom" }
+]
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["VcsRoom"]
+
+# ── Static assets (index.html + panel.js + panel.css) ─────────────────────────
+[assets]
+directory = "static"
+binding = "ASSETS"
+
+# ── KV: shared session store ──────────────────────────────────────────────────
+# Must match the KV namespace used by your accounts/auth worker.
+# Run: wrangler kv namespace create SESSIONS
+# Paste the returned id below.
+[[kv_namespaces]]
+binding = "SESSIONS"
+id = "<PLACEHOLDER_SESSIONS_KV_NAMESPACE_ID>"
+preview_id = "<PLACEHOLDER_SESSIONS_KV_NAMESPACE_PREVIEW_ID>"
+
+# ── KV: public-API bearer keys (optional, uncomment to enable) ───────────────
+# Backs the read-only public API (src/routes/public.ts). Stores
+#   sha256(token) -> {"owner","scopes","created"}
+# Until this namespace is created AND the binding below is uncommented, the
+# public API replies 503 api_not_configured; the rest of the worker is
+# unaffected. To enable:
+#
+#   wrangler kv namespace create VCS_API_KEYS
+#
+# then uncomment + paste the returned id, and issue a key:
+#
+#   TOKEN="sk_vcs_$(openssl rand -hex 24)"
+#   HASH=$(printf %s "$TOKEN" | sha256sum | cut -d' ' -f1)
+#   wrangler kv key put --remote --namespace-id=<id> "$HASH" \
+#     '{"owner":"partner-name","scopes":["read"],"created":"YYYY-MM-DD"}'
+#   echo "$TOKEN"   # give this to the integrator — it is not recoverable
+#
+# [[kv_namespaces]]
+# binding = "VCS_API_KEYS"
+# id = "<PLACEHOLDER_VCS_API_KEYS_KV_NAMESPACE_ID>"
+
+# ── Secrets (via a secrets vault worker) ─────────────────────────────────────
+# The worker reads ENCRYPTION_KEY and VCS_HMAC_KEY at runtime from a vault
+# service binding. Set the `service` field to the name of your vault worker.
+# See src/lib/vault-secret.ts for the expected interface.
+[[services]]
+binding = "VAULT"
+service = "<PLACEHOLDER_VAULT_WORKER_NAME>"
+entrypoint = "Vault"
+
+[vars]
+# Your Twitch channel login name (lowercase).
+TWITCH_CHANNEL = "<PLACEHOLDER_TWITCH_CHANNEL>"
+# Your Twitch broadcaster/channel numeric ID (from Twitch API or dev console).
+TWITCH_BROADCASTER_ID = "<PLACEHOLDER_TWITCH_BROADCASTER_ID>"
+# Where the sign-in button sends viewers to start the OAuth flow.
+# Must be a worker that handles Twitch OAuth and sets a session_id cookie
+# on the parent domain before redirecting back.
+ACCOUNTS_ORIGIN = "<PLACEHOLDER_ACCOUNTS_ORIGIN_URL>"
+# How long (ms) the worker waits for the streamer bridge to reply on an RPC
+# before giving up and returning a 504 to the panel.
+BRIDGE_RPC_TIMEOUT_MS = "5000"
+
+# ── Observability (optional) ──────────────────────────────────────────────────
+# Set to the name of an alerts/tail-consumer worker in your account,
+# or remove this section entirely.
+[[tail_consumers]]
+service = "<PLACEHOLDER_TAIL_CONSUMER_WORKER_NAME>"
+
+[observability]
+enabled = true

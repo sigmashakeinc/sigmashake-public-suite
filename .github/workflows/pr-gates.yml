@@ -1,0 +1,20 @@
+name: PR Gates
+
+on:
+  pull_request:
+
+jobs:
+  light-gates:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Bootstrap
+        run: node scripts/run-gates.mjs --category bootstrap
+      - name: Preflight
+        run: node scripts/run-gates.mjs --category preflight
+      - name: Light 19-gate subset
+        run: node scripts/run-gates.mjs --category test --skip-heavy

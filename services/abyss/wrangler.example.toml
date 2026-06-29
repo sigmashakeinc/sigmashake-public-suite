@@ -1,0 +1,36 @@
+name = "sigmashake-abyss"
+main = "src/index.ts"
+compatibility_date = "2026-05-15"
+compatibility_flags = ["nodejs_compat"]
+workers_dev = true
+
+[assets]
+directory = "./public"
+
+[observability]
+enabled = true
+head_sampling_rate = 1.0
+
+[durable_objects]
+bindings = [
+  { name = "REALM", class_name = "RealmRoom" }
+]
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["RealmRoom"]
+
+[[r2_buckets]]
+binding = "ARCHIVE"
+bucket_name = "<YOUR_R2_ARCHIVE_BUCKET>"
+
+[vars]
+REALM_NAME = "SIGMA ABYSS"
+
+# Set requester signing as a secret, not a var:
+#   wrangler secret put MMO_HMAC_KEY
+#
+# Optional custom domain:
+# [[routes]]
+# pattern = "mmo.example.com"
+# custom_domain = true

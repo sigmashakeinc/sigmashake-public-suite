@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Vibe Coder Sim — Character</title>
+  <meta name="description" content="Design your on-stream sigma. Equip what you own, recolour your skin and hair, preview your character live before it goes on stream.">
+  <link rel="stylesheet" href="panel.css">
+</head>
+<body>
+  <div id="app">
+
+    <!-- Top brand bar -->
+    <header class="brand">
+      <h1>Vibe Coder Sim — Character</h1>
+      <p class="brand-sub">Design your on-stream sigma. Live overlay at <a href="https://twitch.tv/sigmashake" target="_blank" rel="noopener">twitch.tv/sigmashake</a>.</p>
+    </header>
+
+    <!-- Sign-in prompt -->
+    <section class="signin-prompt" id="signin-prompt" hidden>
+      <h2>Sign in</h2>
+      <p class="muted">Use your Twitch, Kick, or Google account to map this builder to your in-stream sigma. Earn XP by chatting; spend it here.</p>
+      <div class="signin-btns">
+        <a id="signin-btn" class="primary signin-twitch" href="#">Sign in with Twitch</a>
+        <a id="signin-kick" class="primary signin-kick" href="#">Sign in with Kick</a>
+        <a id="signin-google" class="primary signin-google" href="#">Sign in with Google</a>
+      </div>
+    </section>
+
+    <!-- Loading state -->
+    <section class="loading" id="loading">
+      <p>Loading your character…</p>
+    </section>
+
+    <!-- Streamer-offline state — visible when /me returns 503 -->
+    <section class="streamer-offline" id="streamer-offline" hidden>
+      <h2>The streamer's box is offline</h2>
+      <p class="muted">We can't reach <code>chat-elixir</code> over the bridge right now, so we don't know what you own. Try again while the stream is live.</p>
+      <p class="muted">Signed in as <span id="offline-login" class="login-tag">—</span> · <a id="offline-signout" href="#">Sign out</a></p>
+    </section>
+
+    <!-- Error banner -->
+    <p id="error" class="error" hidden></p>
+
+    <!-- Main UI: paper-doll character screen -->
+    <section id="vcs-ui" hidden>
+
+      <!-- Top bar: who-you-are + Sigma tokens earned -->
+      <header class="topbar">
+        <div class="who">
+          <span id="who-login" class="login">—</span>
+        </div>
+        <div class="sigma-tokens-badge">
+          <span class="sigma-tokens-label">Sigma tokens earned</span>
+          <span id="who-xp" class="sigma-tokens-value">0</span>
+        </div>
+      </header>
+
+      <!-- Sticky character pane: paperdoll + body row, always visible while editing -->
+      <div class="character-pane">
+        <!-- Paper-doll core: left slot column + center avatar + right slot column -->
+        <section class="paperdoll">
+          <div class="slot-col left">
+            <div class="slot-cell" data-slot="head"><span class="slot-name">Head</span><canvas class="slot-canvas" data-slot="head" width="64" height="64"></canvas><button class="slot-clear" data-slot="head" title="Unequip">×</button></div>
+            <div class="slot-cell" data-slot="hair"><span class="slot-name">Hair</span><canvas class="slot-canvas" data-slot="hair" width="64" height="64"></canvas><button class="slot-clear" data-slot="hair" title="Unequip">×</button></div>
+            <div class="slot-cell" data-slot="eyes"><span class="slot-name">Eyes</span><canvas class="slot-canvas" data-slot="eyes" width="64" height="64"></canvas><button class="slot-clear" data-slot="eyes" title="Unequip">×</button></div>
+            <div class="slot-cell" data-slot="dress"><span class="slot-name">Dress</span><canvas class="slot-canvas" data-slot="dress" width="64" height="64"></canvas><button class="slot-clear" data-slot="dress" title="Unequip">×</button></div>
+            <div class="slot-cell" data-slot="aura"><span class="slot-name">Aura</span><canvas class="slot-canvas" data-slot="aura" width="64" height="64"></canvas><button class="slot-clear" data-slot="aura" title="Unequip">×</button></div>
+          </div>
+
+          <div class="avatar-pane">
+            <canvas id="avatar-canvas" width="240" height="320"></canvas>
+            <div id="avatar-level" class="avatar-level" hidden></div>
+            <div id="avatar-fallback" hidden>
+              <p class="muted">LPC assets failed to load — showing fallback renderer.</p>
+            </div>
+            <div class="dir-controls" id="dir-controls">
+              <button class="dir-btn" data-dir="up" title="Face up">↑</button>
+              <div class="dir-row">
+                <button class="dir-btn" data-dir="left" title="Face left">←</button>
+                <button class="dir-btn" data-action="toggle-walk" id="dir-walk" title="Walk / stand">▶</button>
+                <button class="dir-btn" data-dir="right" title="Face right">→</button>
+              </div>
+              <button class="dir-btn" data-dir="down" title="Face down">↓</button>
+            </div>
+          </div>
+
+          <div class="slot-col right">
+            <div class="slot-cell" data-slot="wings"><span class="slot-name">Wings</span><canvas class="slot-canvas" data-slot="wings" width="64" height="64"></canvas><button class="slot-clear" data-slot="wings" title="Unequip">×</button></div>
+            <div class="slot-cell" data-slot="accessory"><span class="slot-name">Accessory</span><canvas class="slot-canvas" data-slot="accessory" width="64" height="64"></canvas><button class="slot-clear" data-slot="accessory" title="Unequip">×</button></div>
+            <div class="slot-cell" data-slot="companion"><span class="slot-name">Pet</span><canvas class="slot-canvas" data-slot="companion" width="64" height="64"></canvas><button class="slot-clear" data-slot="companion" title="Unequip">×</button></div>
+            <div class="slot-cell" data-slot="trail"><span class="slot-name">Trail</span><canvas class="slot-canvas" data-slot="trail" width="64" height="64"></canvas><button class="slot-clear" data-slot="trail" title="Unequip">×</button></div>
+            <div class="slot-cell" data-slot="pose"><span class="slot-name">Pose</span><canvas class="slot-canvas" data-slot="pose" width="64" height="64"></canvas><button class="slot-clear" data-slot="pose" title="Unequip">×</button></div>
+          </div>
+        </section>
+
+        <!-- Body type row — always one click away under the avatar -->
+        <div class="body-radios body-radios-inline">
+          <label><input type="radio" name="body" value="auto"><span>Auto</span></label>
+          <label><input type="radio" name="body" value="fem"><span>Fem</span></label>
+          <label><input type="radio" name="body" value="masc"><span>Masc</span></label>
+          <label><input type="radio" name="body" value="androgynous"><span>Andro</span></label>
+        </div>
+      </div>
+
+      <!-- Tabbed customization — full-viewport pager. Outer tabs swap entire
+           sections; inner sub-tabs swap a single chip-picker so chatters see
+           one focused option at a time without ever scrolling the page. -->
+      <section class="customize-tabs">
+        <div class="tab-bar" role="tablist">
+          <button class="tab-btn active" type="button" data-tab="looks"   role="tab" aria-selected="true">Looks</button>
+          <button class="tab-btn"        type="button" data-tab="clothes" role="tab" aria-selected="false">Clothes</button>
+          <button class="tab-btn"        type="button" data-tab="colors"  role="tab" aria-selected="false">Colors</button>
+          <button class="tab-btn"        type="button" data-tab="items"   role="tab" aria-selected="false">Items</button>
+          <button class="tab-btn"        type="button" data-tab="combat"  role="tab" aria-selected="false">Combat</button>
+          <button class="tab-btn"        type="button" data-tab="build"   role="tab" aria-selected="false">Build</button>
+          <button class="tab-btn"        type="button" data-tab="abyss"   role="tab" aria-selected="false">Abyss</button>
+          <button class="tab-btn"        type="button" data-tab="shop"    role="tab" aria-selected="false">Shop</button>
+        </div>
+
+        <!-- LOOKS: hair, hat, eyebrows, beard, glasses -->
+        <div class="tab-panel active" data-tab="looks" role="tabpanel">
+          <div class="subtab-bar" role="tablist">
+            <button class="subtab-btn active" type="button" data-subtab="hair">Hair</button>
+            <button class="subtab-btn"        type="button" data-subtab="hat">Hat</button>
+            <button class="subtab-btn"        type="button" data-subtab="brows">Brows</button>
+            <button class="subtab-btn"        type="button" data-subtab="beard">Beard</button>
+            <button class="subtab-btn"        type="button" data-subtab="glasses">Glasses</button>
+          </div>
+          <div class="subtab-body">
+            <div class="subtab-panel active" data-subtab="hair"><div id="hair-style-picker" class="chip-row"></div></div>
+            <div class="subtab-panel"        data-subtab="hat"    hidden><div id="hat-style-picker" class="chip-row"></div></div>
+            <div class="subtab-panel"        data-subtab="brows"  hidden><div id="eyebrows-picker" class="chip-row"></div></div>
+            <div class="subtab-panel"        data-subtab="beard"  hidden><div id="beard-picker" class="chip-row"></div></div>
+            <div class="subtab-panel"        data-subtab="glasses" hidden><div id="glasses-picker" class="chip-row"></div></div>
+          </div>
+        </div>
+
+        <!-- CLOTHES: shirt, pants, shoes, jacket, shoulders, bracers, neck, backpack -->
+        <div class="tab-panel" data-tab="clothes" role="tabpanel" hidden>
+          <div class="subtab-bar" role="tablist">
+            <button class="subtab-btn active" type="button" data-subtab="shirt">Shirt</button>
+            <button class="subtab-btn"        type="button" data-subtab="pants">Pants</button>
+            <button class="subtab-btn"        type="button" data-subtab="shoes">Shoes</button>
+            <button class="subtab-btn"        type="button" data-subtab="jacket">Jacket</button>
+            <button class="subtab-btn"        type="button" data-subtab="shoulders">Shoulder</button>
+            <button class="subtab-btn"        type="button" data-subtab="bracers">Bracer</button>
+            <button class="subtab-btn"        type="button" data-subtab="neck">Neck</button>
+            <button class="subtab-btn"        type="button" data-subtab="backpack">Pack</button>
+          </div>
+          <div class="subtab-body">
+            <div class="subtab-panel active" data-subtab="shirt"><div id="shirt-style-picker" class="chip-row"></div></div>
+            <div class="subtab-panel"        data-subtab="pants"    hidden><div id="pants-style-picker" class="chip-row"></div></div>
+            <div class="subtab-panel"        data-subtab="shoes"    hidden><div id="shoes-style-picker" class="chip-row"></div></div>
+            <div class="subtab-panel"        data-subtab="jacket"   hidden><div id="jacket-picker" class="chip-row"></div></div>
+            <div class="subtab-panel"        data-subtab="shoulders" hidden><div id="shoulders-picker" class="chip-row"></div></div>
+            <div class="subtab-panel"        data-subtab="bracers"  hidden><div id="bracers-picker" class="chip-row"></div></div>
+            <div class="subtab-panel"        data-subtab="neck"     hidden><div id="neck-picker" class="chip-row"></div></div>
+            <div class="subtab-panel"        data-subtab="backpack" hidden><div id="backpack-picker" class="chip-row"></div></div>
+          </div>
+        </div>
+
+        <!-- COLORS: skin, hair, shirt, pants, jacket, shoulder, shoes, bracer, neck palettes + hue -->
+        <div class="tab-panel" data-tab="colors" role="tabpanel" hidden>
+          <div class="subtab-bar" role="tablist">
+            <button class="subtab-btn active" type="button" data-subtab="skin">Skin</button>
+            <button class="subtab-btn"        type="button" data-subtab="hair">Hair</button>
+            <button class="subtab-btn"        type="button" data-subtab="shirt">Shirt</button>
+            <button class="subtab-btn"        type="button" data-subtab="pants">Pants</button>
+            <button class="subtab-btn"        type="button" data-subtab="jacket">Jacket</button>
+            <button class="subtab-btn"        type="button" data-subtab="shoulders">Shoulder</button>
+            <button class="subtab-btn"        type="button" data-subtab="shoes">Shoes</button>
+            <button class="subtab-btn"        type="button" data-subtab="bracers">Bracer</button>
+            <button class="subtab-btn"        type="button" data-subtab="neck">Neck</button>
+            <button class="subtab-btn"        type="button" data-subtab="hue">Hue</button>
+          </div>
+          <div class="subtab-body">
+            <div class="subtab-panel active" data-subtab="skin">
+              <span class="ramp-name" id="ramp-name-skin">—</span>
+              <div id="palette-skin" class="palette-grid" data-material="body" data-color-slot="c_skin"></div>
+            </div>
+            <div class="subtab-panel" data-subtab="hair" hidden>
+              <span class="ramp-name" id="ramp-name-hair">—</span>
+              <div id="palette-hair" class="palette-grid" data-material="hair" data-color-slot="c_hair"></div>
+            </div>
+            <div class="subtab-panel" data-subtab="shirt" hidden>
+              <span class="ramp-name" id="ramp-name-shirt">—</span>
+              <div id="palette-shirt" class="palette-grid" data-material="cloth" data-color-slot="c_shirt"></div>
+            </div>
+            <div class="subtab-panel" data-subtab="pants" hidden>
+              <span class="ramp-name" id="ramp-name-pants">—</span>
+              <div id="palette-pants" class="palette-grid" data-material="cloth" data-color-slot="c_pants"></div>
+            </div>
+            <div class="subtab-panel" data-subtab="jacket" hidden>
+              <span class="ramp-name" id="ramp-name-jacket">—</span>
+              <div id="palette-jacket" class="palette-grid" data-material="cloth" data-color-slot="c_jacket"></div>
+            </div>
+            <div class="subtab-panel" data-subtab="shoulders" hidden>
+              <span class="ramp-name" id="ramp-name-shoulders">—</span>
+              <div id="palette-shoulders" class="palette-grid" data-material="cloth" data-color-slot="c_shoulders"></div>
+            </div>
+            <div class="subtab-panel" data-subtab="shoes" hidden>
+              <span class="ramp-name" id="ramp-name-shoes">—</span>
+              <div id="palette-shoes" class="palette-grid" data-material="cloth" data-color-slot="c_shoes"></div>
+            </div>
+            <div class="subtab-panel" data-subtab="bracers" hidden>
+              <span class="ramp-name" id="ramp-name-bracers">—</span>
+              <div id="palette-bracers" class="palette-grid" data-material="cloth" data-color-slot="c_bracers"></div>
+            </div>
+            <div class="subtab-panel" data-subtab="neck" hidden>
+              <span class="ramp-name" id="ramp-name-neck">—</span>
+              <div id="palette-neck" class="palette-grid" data-material="cloth" data-color-slot="c_neck"></div>
+            </div>
+            <div class="subtab-panel" data-subtab="hue" hidden>
+              <div class="hue-row">
+                <input type="range" id="hue-slider" min="0" max="359" value="0">
+                <span id="hue-value">0°</span>
+                <button id="hue-clear" class="ghost small">Reset</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ITEMS: owned inventory grouped by slot -->
+        <div class="tab-panel" data-tab="items" role="tabpanel" hidden>
+          <p class="tab-help muted" id="inventory-count"></p>
+          <div id="inventory-empty" class="muted" hidden>You don't own any cosmetics yet — chat in the stream to earn XP, then buy items below.</div>
+          <div id="inventory-by-slot"></div>
+        </div>
+
+        <!-- COMBAT: read-only MMO sigma loadout (weapon/armor/ring/relic/charm) -->
+        <div class="tab-panel" data-tab="combat" role="tabpanel" hidden>
+          <p class="tab-help muted">Combat gear from your SIGMA ABYSS run — earned by killing enemies in the MMO, not bought here.</p>
+          <div id="combat-loading" class="muted">Loading combat gear…</div>
+          <div id="combat-empty" class="muted" hidden>No active sigma — type <code>!sigma</code> in chat to mint one.</div>
+          <div id="combat-error" class="muted" hidden></div>
+          <div id="combat-summary" hidden>
+            <div class="combat-stats">
+              <span class="combat-stat"><span class="muted">Lv</span> <b id="combat-level">—</b></span>
+              <span class="combat-stat"><span class="muted">Depth</span> <b id="combat-depth">—</b></span>
+              <span class="combat-stat"><span class="muted">Zone</span> <b id="combat-zone">—</b></span>
+              <span class="combat-stat"><span class="muted">HP</span> <b id="combat-hp">—</b></span>
+            </div>
+            <div id="combat-spirit-row" class="combat-spirit-row" hidden>
+              <span class="combat-spirit-label"><span class="muted">Spirit</span> <b id="combat-spirit-text">—</b></span>
+              <div class="spirit-bar-track"><div id="combat-spirit-bar" class="spirit-bar-fill"></div></div>
+            </div>
+          </div>
+          <div id="combat-gear" class="combat-gear-grid"></div>
+          <div id="combat-inv-block" hidden>
+            <p class="tab-help muted">Your gear bag — tap an item to equip it into its slot. The swap is real: it changes the gear your sigma fights with in the MMO.</p>
+            <div id="combat-inv-empty" class="muted" hidden>Your bag is empty — kill enemies in the MMO to find gear.</div>
+            <div id="combat-inv" class="combat-inv-grid"></div>
+          </div>
+        </div>
+
+        <!-- BUILD: Project Ascendant — passive tree, spirit reservation, position, dual-spec -->
+        <div class="tab-panel" data-tab="build" role="tabpanel" hidden>
+          <!-- Spec tabs: Set A / Set B -->
+          <div class="build-spec-bar">
+            <button class="spec-tab-btn active" type="button" data-spec="A">Set A</button>
+            <button class="spec-tab-btn" type="button" data-spec="B">Set B</button>
+            <span class="build-active-badge" id="build-active-badge">active</span>
+            <button class="build-swap-btn ghost small" type="button" id="build-swap-btn">Swap active set</button>
+          </div>
+
+          <!-- Loading / error states for the build tab -->
+          <div id="build-loading" class="muted build-status-row">Loading build…</div>
+          <div id="build-error"   class="muted build-status-row" hidden></div>
+          <div id="build-offline" class="muted build-status-row" hidden>MMO server offline — build config unavailable.</div>
+
+          <!-- Build content (hidden until data loads) -->
+          <div id="build-content" hidden>
+
+            <!-- Position selector (Inc 5) -->
+            <div class="build-section">
+              <div class="build-section-title">Position</div>
+              <div class="build-pos-row">
+                <button class="pos-btn" type="button" data-pos="front">Front</button>
+                <button class="pos-btn" type="button" data-pos="mid">Mid</button>
+                <button class="pos-btn" type="button" data-pos="back">Back</button>
+              </div>
+            </div>
+
+            <!-- Spirit Reservation (Inc 7) -->
+            <div class="build-section">
+              <div class="build-section-title">
+                Spirit Reservation
+                <span class="build-spirit-used" id="build-spirit-used">— / —</span>
+              </div>
+              <div class="spirit-bar-track build-spirit-bar-track">
+                <div id="build-spirit-bar" class="spirit-bar-fill"></div>
+              </div>
+              <div id="build-aura-list" class="build-aura-list"></div>
+            </div>
+
+            <!-- Weapons (Vampire Survivors auto-fire layer) -->
+            <div class="build-section" id="build-weapons-section">
+              <div class="build-section-title">
+                Auto-Fire Weapons
+                <span id="build-weapons-slots-used" class="build-weapons-slots-used muted">— / 6 slots</span>
+              </div>
+              <div id="build-weapons-loading" class="muted build-status-row" hidden>Loading weapons…</div>
+              <div id="build-weapons-faint" class="weapons-faint-alert" hidden></div>
+              <div id="build-weapons-evolutions" class="weapons-evolutions" hidden></div>
+              <div id="build-weapons-grid" class="weapons-pick-grid"></div>
+            </div>
+
+            <!-- Passive Tree (Inc 4) -->
+            <div class="build-section build-section-tree">
+              <div class="build-section-title">
+                Passive Tree
+                <span class="build-pts-used" id="build-pts-used">0 / 0 points</span>
+              </div>
+              <div class="build-tree-wrap">
+                <canvas id="passive-tree-canvas" class="passive-tree-canvas"></canvas>
+              </div>
+              <!-- Node tooltip (shown on hover/tap) -->
+              <div id="passive-tooltip" class="passive-tooltip" hidden></div>
+            </div>
+
+          </div><!-- /#build-content -->
+        </div><!-- /build tab-panel -->
+
+        <!-- ABYSS: streamer-local SIGMA ABYSS auto-battle canvas -->
+        <div class="tab-panel" data-tab="abyss" role="tabpanel" hidden>
+          <div id="abyss-loading" class="muted abyss-status-row">Loading SIGMA ABYSS...</div>
+          <iframe
+            id="abyss-frame"
+            class="abyss-frame"
+            title="SIGMA ABYSS auto battle"
+            data-src="http://127.0.0.1:7777/?embed=vcs"
+            allow="local-network-access"
+            loading="lazy"
+            referrerpolicy="no-referrer-when-downgrade"
+          ></iframe>
+        </div>
+
+        <!-- SHOP: featured + browse-all -->
+        <div class="tab-panel" data-tab="shop" role="tabpanel" hidden>
+          <p class="tab-help muted">Tap an item to buy with XP. Earn XP by chatting on stream. <span id="catalog-count"></span></p>
+          <div id="shop-featured-block" hidden>
+            <h3 class="section-mini">Featured this week <span class="muted" id="shop-featured-end"></span></h3>
+            <div id="shop-featured" class="inv-grid"></div>
+          </div>
+          <div id="catalog-by-slot"></div>
+        </div>
+      </section>
+
+      <footer class="footer-bar">
+        Signed in as <span id="footer-login">—</span> · <a id="signout-link" href="#">Sign out</a>
+      </footer>
+
+    </section>
+  </div>
+
+  <script type="module" src="panel.js"></script>
+</body>
+</html>

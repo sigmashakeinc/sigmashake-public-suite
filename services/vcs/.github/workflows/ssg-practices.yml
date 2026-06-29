@@ -1,0 +1,68 @@
+name: ssg-practices
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ssg-practices-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  BUN_VERSION: "1.3.11"
+
+jobs:
+  ssg-practices:
+    name: ssg-practices / ${{ matrix.os }}
+    if: github.repository == 'sigmashakeinc/sigmashake-vcs'
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: linux
+            runner: ubuntu-latest
+          - os: macos
+            runner: macos-latest
+          - os: windows
+            runner: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd
+
+      - name: Install Bun
+        shell: bash
+        run: |
+          npm install -g "bun@${BUN_VERSION}"
+          bun --version
+
+      - name: SSG practice gate
+        shell: bash
+        run: bun scripts/ssg-public-check.mjs
+
+      - name: Public integrity gate
+        shell: bash
+        run: bun scripts/public-integrity.mjs
+
+      - name: Install dependencies
+        shell: bash
+        run: bun install --frozen-lockfile
+
+      - name: Lint
+        shell: bash
+        run: bun run lint
+
+      - name: Typecheck
+        shell: bash
+        run: bun run typecheck
+
+      - name: Test
+        shell: bash
+        run: bun test

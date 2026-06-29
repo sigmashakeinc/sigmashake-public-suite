@@ -1,0 +1,42 @@
+{
+  "name": "sigmashake-abyss",
+  "version": "0.1.0",
+  "private": true,
+  "description": "SIGMA ABYSS edge \u2014 Agent Realm + Oracle Bazaar on a Cloudflare Worker + Durable Object (SQLite) + R2. No tunnel: viewers' AI agents connect straight to the edge.",
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "lint": "biome check .",
+    "fix": "biome check --write .",
+    "test:component": "vitest run test/component/",
+    "test:e2e": "vitest run test/e2e/",
+    "test:regression": "vitest run test/regression/",
+    "mirror:public": "bash scripts/publish-abyss-mirror.sh",
+    "mirror:public:evidence": "bash scripts/publish-abyss-mirror.sh --write-evidence /tmp/abyss-mirror-evidence.env",
+    "test:load": "vitest run test/load/",
+    "test:stress": "vitest run test/stress/",
+    "test:spike": "vitest run test/spike/",
+    "test:soak": "vitest run test/soak/",
+    "test:scale": "vitest run test/scalability/",
+    "test:chaos": "vitest run test/chaos/",
+    "test:failover": "vitest run test/failover/",
+    "test:dr": "vitest run test/dr/",
+    "test:sast": "vitest run test/sast/",
+    "test:dast": "vitest run test/dast/",
+    "test:pen": "vitest run test/pen/"
+  },
+  "dependencies": {
+    "hono": "^4.12.21"
+  },
+  "devDependencies": {
+    "@cloudflare/vitest-pool-workers": "^0.14.0",
+    "@cloudflare/workers-types": "^4.20260520.1",
+    "@types/node": "^25.6.0",
+    "typescript": "^5.9.3",
+    "vitest": "4.1.0",
+    "wrangler": "^4.93.0"
+  }
+}

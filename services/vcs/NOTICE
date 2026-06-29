@@ -1,0 +1,73 @@
+sigmashake-vcs — NOTICE
+=======================
+
+MIXED LICENSE: This repository contains two distinct categories of work
+under different terms. You MUST honor both.
+
+────────────────────────────────────────────────────────────────────────
+PART 1 — Original source code and documentation
+────────────────────────────────────────────────────────────────────────
+
+All files in this repository EXCEPT the assets listed under Part 2 are
+released under The Unlicense (public domain dedication). See UNLICENSE
+for the full text.
+
+Covered paths (non-exhaustive):
+  src/
+  static/index.html
+  static/panel.js
+  static/panel.css
+  static/assets/js/
+  tools/
+  test/
+  *.toml, *.json, *.yaml, *.md (excluding those inside static/assets/lpc/)
+
+────────────────────────────────────────────────────────────────────────
+PART 2 — Bundled LPC sprite assets  (static/assets/lpc/**)
+────────────────────────────────────────────────────────────────────────
+
+The 130 directories under static/assets/lpc/ contain sprite sheets from
+the Universal LPC Spritesheet Character Generator project:
+
+  https://github.com/liberatedpixelcup/Universal-LPC-Spritesheet-Character-Generator
+
+These assets are NOT in the public domain. They are used under the
+terms of their original upstream licenses. Attribution is REQUIRED for
+all CC-BY and OGA-BY assets, and share-alike / copyleft terms apply
+where specified.
+
+Licenses that apply across this collection (individual assets vary):
+
+  CC-BY 3.0           LICENSES/CC-BY-3.0.txt
+  CC-BY 4.0           LICENSES/CC-BY-4.0.txt
+  CC-BY-SA 3.0        LICENSES/CC-BY-SA-3.0.txt
+  CC-BY-SA 4.0        LICENSES/CC-BY-SA-4.0.txt
+  CC0 1.0             (public domain dedication — no restrictions)
+  GPL 2.0             LICENSES/GPL-2.0.txt
+  GPL 3.0             LICENSES/GPL-3.0.txt
+  OGA-BY 3.0          LICENSES/OGA-BY-3.0.txt
+  OGA-SA 3.0          LICENSES/OGA-SA-3.0.txt
+
+Full upstream attribution (author, source URL, license, change notice)
+is maintained in the upstream project's CREDITS.csv:
+
+  https://github.com/liberatedpixelcup/Universal-LPC-Spritesheet-Character-Generator/blob/master/CREDITS.csv
+
+The file static/assets/lpc/CREDITS.csv in this repository maps each bundled
+local LPC PNG to the matching upstream attribution row. The bundled files are
+unmodified upstream selections unless that file says otherwise.
+For share-alike / copyleft compliance, any derivative work incorporating
+these assets must itself be released under the same or compatible terms.
+
+Author list is in static/assets/lpc/CREDITS-LPC.md.
+
+────────────────────────────────────────────────────────────────────────
+SHARE-ALIKE / COPYLEFT NOTICE
+────────────────────────────────────────────────────────────────────────
+
+If you distribute a product that incorporates assets covered by
+CC-BY-SA, GPL-2.0, GPL-3.0, or OGA-SA-3.0, you must comply with the
+copyleft terms of those licenses for those assets. The Unlicense
+covering the original source code is compatible with permissive use;
+it does not override the share-alike obligations that attach to the
+bundled sprites.

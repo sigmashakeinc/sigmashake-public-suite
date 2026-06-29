@@ -1,0 +1,55 @@
+openapi: 3.1.0
+info:
+  title: sigmashake-vcs
+  version: 0.0.0
+  description: |
+    sigmashake-vcs HTTP API surface. Each route handler is the source of truth — this
+    spec is a stub baseline maintained alongside the handlers (see
+    docs/adr/0001-platform-choice.md). Endpoints below are the always-present
+    contract; service-specific routes are documented in the per-service
+    handler files.
+
+servers:
+  - url: https://vcs.sigmashake.com
+    description: production
+
+paths:
+  /api/health:
+    get:
+      summary: Liveness probe
+      operationId: health
+      security: []
+      responses:
+        '200':
+          description: Service is live
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok: { type: boolean }
+                  version: { type: string }
+
+  /readyz:
+    get:
+      summary: Readiness probe
+      operationId: readyz
+      security: []
+      responses:
+        '200': { description: Service is ready }
+        '503': { description: Service is warming up }
+
+components:
+  securitySchemes:
+    bearer:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+    sessionCookie:
+      type: apiKey
+      in: cookie
+      name: sigma_session
+
+security:
+  - bearer: []
+  - sessionCookie: []

@@ -1,0 +1,30 @@
+{
+  "name": "sigmashake-public-suite",
+  "version": "0.1.0",
+  "private": false,
+  "description": "Public collaboration monorepo for SigmaShake MMO, Sigma Abyss, and VCS.",
+  "type": "module",
+  "workspaces": [
+    "services/mmo",
+    "services/abyss",
+    "services/vcs"
+  ],
+  "scripts": {
+    "bootstrap": "node scripts/run-gates.mjs --category bootstrap",
+    "check": "node scripts/run-gates.mjs --category preflight",
+    "test:19": "node scripts/run-gates.mjs --category test",
+    "test": "bun run check && bun run test:19",
+    "gates:list": "node scripts/run-gates.mjs --list",
+    "review:policy": "node scripts/review-policy.mjs --root . --base origin/main",
+    "review:pr": "bash scripts/review-pr.sh",
+    "review:loop": "bash scripts/review-pr-loop.sh",
+    "review:webhook": "node scripts/webhook-server.mjs",
+    "deploy": "bash scripts/deploy-from-host.sh",
+    "mirror:public": "bash scripts/publish-public-suite.sh",
+    "mirror:public:evidence": "bash scripts/publish-public-suite.sh --write-evidence /tmp/sigmashake-public-suite.env"
+  },
+  "engines": {
+    "node": ">=20",
+    "bun": ">=1.1"
+  }
+}

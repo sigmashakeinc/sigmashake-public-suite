@@ -1,0 +1,27 @@
+[Unit]
+Description=SigmaShake Public Suite GitHub webhook automation
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/srv/sigmashake-public-suite
+ExecStart=/usr/bin/env node scripts/webhook-server.mjs
+Restart=on-failure
+RestartSec=5
+Environment=SUITE_REPO=sigmashakeinc/sigmashake-public-suite
+Environment=PUBLIC_SUITE_WEBHOOK_HOST=127.0.0.1
+Environment=PUBLIC_SUITE_WEBHOOK_PORT=7918
+Environment=AUTO_MERGE=1
+Environment=AUTO_DEPLOY=0
+Environment=TRIGGER_ON_PR=1
+Environment=TRIGGER_ON_WORKFLOW_SUCCESS=1
+Environment=GITHUB_WEBHOOK_SECRET=replace-with-host-secret
+# Enable AUTO_DEPLOY=1 only after setting deploy and verification commands.
+# Environment=VCS_VERIFY_COMMAND=curl -fsS https://vcs.example.com/healthz
+# Environment=ABYSS_VERIFY_COMMAND=curl -fsS https://abyss.example.com/healthz
+# Environment=MMO_DEPLOY_COMMAND=/srv/sigmashake-public-suite/deploy-mmo.sh
+# Environment=MMO_VERIFY_COMMAND=curl -fsS https://mmo.example.com/healthz
+
+[Install]
+WantedBy=default.target

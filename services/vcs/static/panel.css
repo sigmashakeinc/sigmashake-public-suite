@@ -1,0 +1,1505 @@
+:root {
+  --bg: #0e0e10;
+  --surface: #18181b;
+  --surface-2: #26262c;
+  --border: #3d3d42;
+  --accent: #bf94ff;
+  --accent-press: #a274ee;
+  --text: #efeff1;
+  --muted: #adadb8;
+  --danger: #f04747;
+  --good: #00d3ff;
+  --gold: #ffc857;
+  --rar-common: #9098a4;
+  --rar-rare: #67c1f5;
+  --rar-royal: #bf94ff;
+  --rar-legendary: #ff8a3d;
+  --rar-mythic: #ffc857;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+html,
+body {
+  height: 100%;
+  overflow: hidden;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-size: 14px;
+  line-height: 1.5;
+}
+#app {
+  max-width: 980px;
+  margin: 0 auto;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  padding: 10px 12px 0;
+}
+
+/* Sign-in / offline / loading screens scroll their own column if needed —
+   they're the only views where the no-scroll constraint doesn't apply. */
+#signin-prompt,
+#streamer-offline,
+#loading {
+  flex-shrink: 0;
+  margin-top: 24px;
+}
+
+/* Main builder view: full-height flex column that never overflows the page. */
+#vcs-ui {
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+a {
+  color: var(--accent);
+  text-decoration: none;
+}
+a:hover {
+  text-decoration: underline;
+}
+
+.brand {
+  text-align: center;
+  margin-bottom: 6px;
+  flex-shrink: 0;
+}
+.brand h1 {
+  font-size: 16px;
+  font-weight: 800;
+  color: var(--accent);
+}
+.brand-sub {
+  display: none;
+}
+
+h2 {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+  margin: 14px 0 6px;
+}
+h2 .ramp-name {
+  font-style: italic;
+  color: var(--text);
+  text-transform: none;
+  letter-spacing: 0;
+}
+.muted {
+  color: var(--muted);
+  font-size: 13px;
+}
+.error {
+  color: var(--danger);
+  font-size: 13px;
+  padding: 8px 10px;
+  background: rgba(240, 71, 71, 0.1);
+  border-radius: 6px;
+  margin-bottom: 12px;
+}
+
+button,
+a.primary {
+  background: var(--surface-2);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 7px 12px;
+  font-size: 13px;
+  cursor: pointer;
+  font-family: inherit;
+  display: inline-block;
+  text-decoration: none;
+}
+button:hover:not(:disabled),
+a.primary:hover {
+  background: #2e2e35;
+}
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+button.primary,
+a.primary {
+  background: var(--accent);
+  color: var(--bg);
+  border-color: var(--accent);
+  font-weight: 700;
+}
+button.primary:hover:not(:disabled),
+a.primary:hover {
+  background: var(--accent-press);
+  text-decoration: none;
+}
+button.ghost {
+  background: transparent;
+}
+button.small {
+  padding: 3px 8px;
+  font-size: 11px;
+}
+
+.signin-prompt,
+.streamer-offline {
+  text-align: center;
+  padding: 36px 20px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  max-width: 480px;
+  margin: 24px auto;
+}
+.signin-prompt h2,
+.streamer-offline h2 {
+  font-size: 18px;
+  color: var(--text);
+  text-transform: none;
+  letter-spacing: 0;
+  margin-bottom: 10px;
+}
+.signin-prompt p,
+.streamer-offline p {
+  margin: 0 0 18px;
+}
+.signin-btns {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  align-items: center;
+}
+.signin-prompt .primary {
+  padding: 10px 22px;
+  font-size: 14px;
+  min-width: 220px;
+  text-align: center;
+}
+/* Twitch button: keep default accent (purple) from `.primary` */
+.signin-twitch {
+  background: #9147ff;
+  border-color: #9147ff;
+  color: #fff;
+}
+.signin-twitch:hover {
+  background: #7c3bd9;
+  border-color: #7c3bd9;
+  text-decoration: none;
+}
+/* Kick button: Kick brand green with dark text for contrast */
+.signin-kick {
+  background: #53fc18;
+  border-color: #53fc18;
+  color: #0e0e10;
+}
+.signin-kick:hover {
+  background: #3fd910;
+  border-color: #3fd910;
+  text-decoration: none;
+}
+/* Google button: white bg, dark text, subtle border */
+.signin-google {
+  background: #fff;
+  border-color: #dadce0;
+  color: #3c4043;
+}
+.signin-google:hover {
+  background: #f1f3f4;
+  border-color: #dadce0;
+  text-decoration: none;
+}
+.streamer-offline code {
+  background: var(--surface-2);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 12px;
+}
+.login-tag {
+  color: var(--accent);
+  font-weight: 600;
+}
+/* Source badge shown in the topbar when signed in via kick or google */
+.source-badge {
+  display: inline-block;
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  border-radius: 4px;
+  padding: 1px 5px;
+  vertical-align: middle;
+  margin-left: 4px;
+}
+.source-badge-kick {
+  background: #53fc18;
+  color: #0e0e10;
+}
+.source-badge-google {
+  background: #fff;
+  color: #3c4043;
+  border: 1px solid #dadce0;
+}
+.loading {
+  text-align: center;
+  padding: 28px;
+}
+
+/* ── Top bar ───────────────────────────────────────────────────────── */
+.topbar {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 6px;
+  padding-bottom: 0;
+  flex-shrink: 0;
+}
+.who {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+.who .login {
+  font-weight: 700;
+  color: var(--accent);
+  font-size: 14px;
+}
+/* Sigma tokens earned badge — persistent character-card counter (Slice B) */
+.sigma-tokens-badge {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(255, 200, 87, 0.08);
+  border: 1px solid rgba(255, 200, 87, 0.22);
+  border-radius: 6px;
+  padding: 4px 10px;
+  align-self: flex-start;
+}
+.sigma-tokens-label {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--muted);
+}
+.sigma-tokens-value {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--gold);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Character pane (always visible, fixed-height region) ──────────── */
+.character-pane {
+  margin-bottom: 8px;
+  background: linear-gradient(180deg, rgba(191, 148, 255, 0.04) 0%, transparent 60%);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 8px 8px 6px;
+  flex-shrink: 0;
+  min-width: 0;
+}
+
+/* ── Paper-doll layout ─────────────────────────────────────────────── */
+.paperdoll {
+  display: grid;
+  grid-template-columns: 52px 1fr 52px;
+  gap: 6px;
+  align-items: start;
+  margin-bottom: 6px;
+}
+@media (min-width: 720px) {
+  .paperdoll {
+    grid-template-columns: 60px 1fr 60px;
+    gap: 10px;
+  }
+}
+
+.slot-col {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.slot-cell {
+  position: relative;
+  background: var(--surface);
+  border: 2px solid var(--border);
+  border-radius: 6px;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  padding: 2px 1px 1px;
+  transition: border-color 0.15s ease;
+}
+.slot-cell:not(.empty) {
+  border-color: var(--accent);
+}
+.slot-cell.empty .slot-canvas {
+  opacity: 0;
+}
+.slot-cell.empty::after {
+  content: "";
+  position: absolute;
+  inset: 14px 8px 6px;
+  border: 1px dashed var(--border);
+  border-radius: 4px;
+  pointer-events: none;
+}
+
+.slot-name {
+  font-size: 7px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+  display: block;
+  line-height: 1.1;
+}
+.slot-canvas {
+  width: 100%;
+  flex: 1;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  /* canvas attribute width/height drives logical pixels; CSS scales it up */
+}
+.slot-clear {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  padding: 0;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  font-size: 11px;
+  line-height: 1;
+  background: var(--danger);
+  color: white;
+  border: none;
+  cursor: pointer;
+  opacity: 0.85;
+}
+.slot-clear:hover {
+  opacity: 1;
+}
+
+.avatar-pane {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 4px 4px 6px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+}
+.dir-controls {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  margin-top: 0;
+}
+.dir-row {
+  display: flex;
+  gap: 3px;
+}
+.dir-btn {
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  font-size: 13px;
+  line-height: 1;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: 5px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.dir-btn:hover {
+  background: #2e2e35;
+}
+.dir-btn.active {
+  background: var(--accent);
+  color: var(--bg);
+  border-color: var(--accent);
+}
+.avatar-pane canvas {
+  width: 100%;
+  max-width: 200px;
+  max-height: 240px;
+  height: auto;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+}
+.avatar-level {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  color: var(--accent);
+  text-transform: uppercase;
+  margin-top: -2px;
+}
+
+/* ── Customize blocks (body, styles, palettes, hue) ────────────────── */
+.customize-block {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 14px 16px;
+  margin-bottom: 16px;
+}
+.customize-block h2:first-child {
+  margin-top: 0;
+}
+
+/* ── Body radios ───────────────────────────────────────────────────── */
+.body-radios {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+@media (min-width: 540px) {
+  .body-radios {
+    grid-template-columns: 1fr 1fr 1fr 1fr;
+  }
+}
+.body-radios label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+}
+.body-radios input {
+  accent-color: var(--accent);
+}
+
+/* Inline variant — single compact row under the avatar, always visible. */
+.body-radios-inline {
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+}
+.body-radios-inline label {
+  justify-content: center;
+  gap: 4px;
+  padding: 5px 6px;
+  font-size: 12px;
+}
+
+/* ── Tabbed customization (full-viewport pager) ─────────────────────── */
+.customize-tabs {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+.tab-bar {
+  display: flex;
+  gap: 0;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-2);
+  flex-shrink: 0;
+}
+.tab-btn {
+  flex: 1;
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
+  padding: 9px 4px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+  cursor: pointer;
+  transition:
+    color 0.15s ease,
+    border-color 0.15s ease,
+    background 0.15s ease;
+  letter-spacing: 0.02em;
+}
+.tab-btn:hover {
+  background: rgba(191, 148, 255, 0.06);
+  color: var(--text);
+}
+.tab-btn.active {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+  background: var(--surface);
+}
+
+/* Each main tab panel is itself a flex column so it can host a sub-tab strip
+   plus a scrollable body. .active uses display:flex; hidden uses display:none. */
+.tab-panel {
+  flex: 1;
+  min-height: 0;
+  display: none;
+  flex-direction: column;
+}
+.tab-panel.active {
+  display: flex;
+}
+
+/* Sub-tab strip — sits inside a main tab, picks one chip-picker at a time. */
+.subtab-bar {
+  display: flex;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  gap: 4px;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--border);
+  background: rgba(38, 38, 44, 0.5);
+  flex-shrink: 0;
+  scrollbar-width: thin;
+}
+.subtab-btn {
+  flex: 0 0 auto;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  padding: 5px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.subtab-btn:hover {
+  color: var(--text);
+  background: rgba(191, 148, 255, 0.08);
+}
+.subtab-btn.active {
+  color: var(--bg);
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+.subtab-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 12px 14px 14px;
+}
+.subtab-panel {
+  display: none;
+}
+.subtab-panel.active {
+  display: block;
+}
+.subtab-panel .ramp-name {
+  display: inline-block;
+  margin-bottom: 6px;
+  font-style: italic;
+  color: var(--text);
+}
+.subtab-panel .chip-row {
+  margin-bottom: 0;
+}
+
+/* Tabs without sub-tabs (Items, Shop) — content goes directly in the panel. */
+.tab-panel:not(:has(.subtab-bar)) {
+  overflow-y: auto;
+  padding: 12px 14px 14px;
+}
+.tab-help {
+  margin-bottom: 8px;
+  font-size: 12px;
+}
+.tab-panel[data-tab="abyss"] {
+  overflow: hidden;
+  padding: 8px;
+  display: none;
+  gap: 8px;
+}
+.tab-panel[data-tab="abyss"].active {
+  display: flex;
+}
+.abyss-status-row {
+  flex-shrink: 0;
+  padding: 2px 2px 0;
+}
+.abyss-frame {
+  flex: 1;
+  min-height: 420px;
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #0a0e14;
+}
+.section-mini {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--accent);
+  margin: 4px 0 6px;
+}
+#shop-featured-block {
+  margin-bottom: 14px;
+}
+
+/* ── Chip-row pickers ──────────────────────────────────────────────── */
+.chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.chip {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  padding: 6px 10px;
+  font-size: 12px;
+  cursor: pointer;
+  color: var(--muted);
+}
+.chip.active {
+  background: var(--accent);
+  color: var(--bg);
+  border-color: var(--accent);
+}
+.chip:hover:not(.active) {
+  background: #2e2e35;
+}
+.chip-clear {
+  opacity: 0.7;
+}
+
+/* ── Palette swatches (LPC ramps) ──────────────────────────────────── */
+.palette-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(36px, 1fr));
+  gap: 6px;
+}
+.swatch {
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  border-radius: 6px;
+  border: 2px solid transparent;
+  cursor: pointer;
+  padding: 0;
+  transition:
+    transform 0.1s ease,
+    border-color 0.1s ease;
+}
+.swatch:hover {
+  transform: scale(1.08);
+}
+.swatch.active {
+  border-color: var(--text);
+  box-shadow: 0 0 0 2px var(--accent);
+}
+
+/* ── Hue slider ────────────────────────────────────────────────────── */
+.hue-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.hue-row input[type="range"] {
+  flex: 1;
+  appearance: none;
+  height: 8px;
+  border-radius: 4px;
+  background: linear-gradient(to right, #f00, #ff0, #0f0, #0ff, #00f, #f0f, #f00);
+}
+.hue-row input[type="range"]::-webkit-slider-thumb {
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--text);
+  border: 2px solid var(--surface);
+  cursor: pointer;
+}
+.hue-row #hue-value {
+  width: 36px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  font-size: 12px;
+}
+
+/* ── Inventory ─────────────────────────────────────────────────────── */
+.inv-slot-header {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--accent);
+  margin: 14px 0 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.inv-slot-header:first-of-type {
+  margin-top: 0;
+}
+.inv-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+  gap: 8px;
+}
+.inv-cell {
+  background: var(--surface-2);
+  border: 2px solid var(--border);
+  border-radius: 8px;
+  padding: 6px;
+  cursor: pointer;
+  text-align: center;
+  position: relative;
+  transition:
+    transform 0.1s ease,
+    border-color 0.1s ease;
+}
+.inv-cell:hover {
+  transform: translateY(-2px);
+  border-color: var(--accent);
+}
+.inv-cell.equipped {
+  border-color: var(--gold);
+  box-shadow: 0 0 0 1px var(--gold);
+}
+.inv-cell.equipped::after {
+  content: "✓ Equipped";
+  position: absolute;
+  top: -8px;
+  right: 4px;
+  background: var(--gold);
+  color: var(--bg);
+  font-size: 9px;
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+.inv-canvas {
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 4px;
+}
+.inv-label {
+  font-size: 11px;
+  margin-top: 4px;
+  word-break: break-word;
+  line-height: 1.2;
+  color: var(--text);
+}
+.inv-rarity {
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-top: 2px;
+  font-weight: 600;
+}
+.inv-cell.rarity-common .inv-rarity {
+  color: var(--rar-common);
+}
+.inv-cell.rarity-rare .inv-rarity {
+  color: var(--rar-rare);
+}
+.inv-cell.rarity-royal .inv-rarity {
+  color: var(--rar-royal);
+}
+.inv-cell.rarity-mythic .inv-rarity {
+  color: var(--rar-mythic);
+}
+.inv-cell.rarity-rare {
+  border-color: rgba(103, 193, 245, 0.45);
+}
+.inv-cell.rarity-royal {
+  border-color: rgba(191, 148, 255, 0.55);
+}
+.inv-cell.rarity-mythic {
+  border-color: rgba(255, 200, 87, 0.6);
+}
+
+/* ── Shop / catalog cells ──────────────────────────────────────────── */
+.shop-price {
+  font-size: 10px;
+  margin-top: 3px;
+  font-weight: 700;
+  color: var(--gold);
+  letter-spacing: 0.02em;
+}
+.shop-price.locked {
+  color: var(--muted);
+}
+.inv-cell.shop-cell.locked {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.inv-cell.shop-cell.locked:hover {
+  transform: none;
+  border-color: var(--border);
+}
+.inv-cell.shop-cell.owned:not(.equipped) {
+  border-color: var(--accent);
+}
+.inv-cell.shop-cell.owned .shop-price {
+  color: var(--accent);
+}
+
+/* ── Combat (read-only MMO gear) ───────────────────────────────────── */
+.combat-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 14px;
+  padding: 6px 0 10px;
+  font-size: 11px;
+  color: var(--muted);
+}
+.combat-stat b {
+  color: var(--text);
+  font-weight: 700;
+}
+.combat-gear-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 8px;
+}
+.combat-cell {
+  background: var(--surface-2);
+  border: 2px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 8px 9px;
+  position: relative;
+  text-align: left;
+}
+.combat-cell.empty {
+  opacity: 0.5;
+}
+.combat-cell.starter {
+  opacity: 0.85;
+}
+.combat-slot {
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+  margin-bottom: 2px;
+}
+.combat-name {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text);
+  line-height: 1.25;
+  word-break: break-word;
+}
+.combat-meta {
+  margin-top: 4px;
+  display: flex;
+  gap: 8px;
+  font-size: 10px;
+}
+.combat-rarity {
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-weight: 600;
+}
+.combat-power {
+  color: var(--muted);
+}
+.combat-power b {
+  color: var(--gold);
+}
+.combat-family {
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-weight: 600;
+  color: var(--muted);
+}
+/* Spirit pool row — Project Ascendant */
+.combat-spirit-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0 6px;
+  font-size: 11px;
+  color: var(--muted);
+}
+.combat-spirit-label b {
+  color: var(--text);
+  font-weight: 700;
+}
+.spirit-bar-track {
+  flex: 1;
+  height: 5px;
+  background: var(--surface-2);
+  border-radius: 3px;
+  overflow: hidden;
+  max-width: 120px;
+}
+.spirit-bar-fill {
+  height: 100%;
+  width: 100%;
+  background: #7c5cbf;
+  border-radius: 3px;
+  transition: width 0.3s ease;
+}
+.combat-cell.rarity-common .combat-rarity {
+  color: var(--rar-common);
+}
+.combat-cell.rarity-rare .combat-rarity {
+  color: var(--rar-rare);
+}
+.combat-cell.rarity-royal .combat-rarity {
+  color: var(--rar-royal);
+}
+.combat-cell.rarity-legendary .combat-rarity {
+  color: var(--rar-legendary);
+}
+.combat-cell.rarity-mythic .combat-rarity {
+  color: var(--rar-mythic);
+}
+.combat-cell.rarity-rare {
+  border-color: rgba(103, 193, 245, 0.45);
+}
+.combat-cell.rarity-royal {
+  border-color: rgba(191, 148, 255, 0.55);
+}
+.combat-cell.rarity-legendary {
+  border-color: rgba(255, 138, 61, 0.6);
+}
+.combat-cell.rarity-mythic {
+  border-color: rgba(255, 200, 87, 0.6);
+}
+
+/* ── Combat gear bag (equippable inventory) ────────────────────────── */
+#combat-inv-block {
+  margin-top: 14px;
+}
+.combat-inv-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 8px;
+}
+.combat-inv-cell {
+  background: var(--surface-2);
+  border: 2px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 8px 9px;
+  position: relative;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    transform 0.1s ease,
+    border-color 0.1s ease,
+    opacity 0.1s ease;
+}
+.combat-inv-cell:hover {
+  transform: translateY(-2px);
+  border-color: var(--accent);
+}
+.combat-inv-cell.busy {
+  opacity: 0.55;
+  cursor: progress;
+  pointer-events: none;
+}
+.combat-inv-cell.rarity-rare {
+  border-color: rgba(103, 193, 245, 0.45);
+}
+.combat-inv-cell.rarity-royal {
+  border-color: rgba(191, 148, 255, 0.55);
+}
+.combat-inv-cell.rarity-legendary {
+  border-color: rgba(255, 138, 61, 0.6);
+}
+.combat-inv-cell.rarity-mythic {
+  border-color: rgba(255, 200, 87, 0.6);
+}
+.combat-inv-cell.rarity-common .combat-rarity {
+  color: var(--rar-common);
+}
+.combat-inv-cell.rarity-rare .combat-rarity {
+  color: var(--rar-rare);
+}
+.combat-inv-cell.rarity-royal .combat-rarity {
+  color: var(--rar-royal);
+}
+.combat-inv-cell.rarity-legendary .combat-rarity {
+  color: var(--rar-legendary);
+}
+.combat-inv-cell.rarity-mythic .combat-rarity {
+  color: var(--rar-mythic);
+}
+.combat-equip-hint {
+  margin-top: 5px;
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--accent);
+  font-weight: 600;
+}
+
+[data-slot-section].flash {
+  animation: slot-flash 1.2s ease-out;
+}
+@keyframes slot-flash {
+  0% {
+    background: rgba(191, 148, 255, 0.18);
+    border-radius: 8px;
+  }
+  100% {
+    background: transparent;
+  }
+}
+[data-slot-section] {
+  padding: 4px;
+  margin: 0 -4px;
+}
+.slot-cell {
+  cursor: pointer;
+}
+.slot-cell:hover {
+  border-color: var(--accent);
+}
+
+/* ── Build tab (Project Ascendant) ─────────────────────────────────── */
+
+/* The build tab has no sub-tab bar so the base rule gives it a scroller */
+.tab-panel[data-tab="build"] {
+  overflow-y: auto;
+  padding: 10px 12px 14px;
+  display: none;
+  flex-direction: column;
+  gap: 0;
+}
+.tab-panel[data-tab="build"].active {
+  display: flex;
+}
+
+.build-status-row {
+  padding: 8px 0;
+  font-size: 13px;
+}
+
+/* Spec-tab bar (Set A / Set B) */
+.build-spec-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 10px;
+  flex-wrap: wrap;
+  flex-shrink: 0;
+}
+.spec-tab-btn {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  padding: 5px 14px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--muted);
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s, border-color 0.12s;
+}
+.spec-tab-btn:hover {
+  color: var(--text);
+  background: #2e2e35;
+}
+.spec-tab-btn.active {
+  background: var(--accent);
+  color: var(--bg);
+  border-color: var(--accent);
+}
+.build-active-badge {
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  background: var(--good);
+  color: var(--bg);
+  border-radius: 3px;
+  padding: 2px 6px;
+}
+.build-swap-btn {
+  margin-left: auto;
+  font-size: 11px;
+  color: var(--muted);
+  border-color: var(--border);
+}
+.build-swap-btn:hover {
+  color: var(--text);
+}
+
+/* Sections inside the build tab */
+.build-section {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 12px;
+  margin-bottom: 10px;
+  flex-shrink: 0;
+}
+.build-section-title {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--accent);
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.build-spirit-used {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text);
+  text-transform: none;
+  letter-spacing: 0;
+  margin-left: auto;
+}
+.build-pts-used {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text);
+  text-transform: none;
+  letter-spacing: 0;
+  margin-left: auto;
+}
+.build-spirit-bar-track {
+  max-width: 100%;
+  margin-bottom: 10px;
+}
+
+/* Position selector */
+.build-pos-row {
+  display: flex;
+  gap: 8px;
+}
+.pos-btn {
+  flex: 1;
+  padding: 8px 0;
+  font-size: 12px;
+  font-weight: 600;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--muted);
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s, border-color 0.12s;
+}
+.pos-btn:hover {
+  color: var(--text);
+  background: #2e2e35;
+}
+.pos-btn.active {
+  background: var(--accent);
+  color: var(--bg);
+  border-color: var(--accent);
+}
+
+/* Aura reservation list */
+.build-aura-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.aura-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 8px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: border-color 0.12s, opacity 0.12s;
+}
+.aura-row:hover {
+  border-color: var(--accent);
+}
+.aura-row.active {
+  border-color: #7c5cbf;
+  background: rgba(124, 92, 191, 0.18);
+}
+.aura-row.locked {
+  opacity: 0.45;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+.aura-check {
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
+  border: 2px solid var(--border);
+  background: var(--surface);
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  transition: background 0.12s, border-color 0.12s;
+}
+.aura-row.active .aura-check {
+  background: #7c5cbf;
+  border-color: #7c5cbf;
+  color: #fff;
+}
+.aura-info {
+  flex: 1;
+  min-width: 0;
+}
+.aura-name {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text);
+}
+.aura-desc {
+  font-size: 10px;
+  color: var(--muted);
+  margin-top: 1px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.aura-cost {
+  font-size: 11px;
+  font-weight: 700;
+  color: #7c5cbf;
+  flex-shrink: 0;
+}
+.aura-kind {
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+  flex-shrink: 0;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 1px 4px;
+}
+
+/* Passive tree canvas container */
+.build-section-tree {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+.build-tree-wrap {
+  flex: 1;
+  min-height: 260px;
+  position: relative;
+  overflow: hidden;
+  background: rgba(0, 0, 0, 0.18);
+  border-radius: 6px;
+  border: 1px solid var(--border);
+}
+.passive-tree-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  cursor: grab;
+  image-rendering: pixelated;
+}
+.passive-tree-canvas:active {
+  cursor: grabbing;
+}
+
+/* Node tooltip */
+.passive-tooltip {
+  position: fixed;
+  background: var(--surface);
+  border: 1px solid var(--accent);
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-size: 12px;
+  max-width: 220px;
+  pointer-events: none;
+  z-index: 99;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.5);
+}
+.passive-tooltip .tt-name {
+  font-weight: 700;
+  color: var(--accent);
+  margin-bottom: 3px;
+}
+.passive-tooltip .tt-kind {
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+  margin-bottom: 4px;
+}
+.passive-tooltip .tt-mods {
+  color: var(--text);
+  line-height: 1.5;
+}
+.passive-tooltip .tt-desc {
+  margin-top: 4px;
+  color: var(--muted);
+  font-style: italic;
+  font-size: 11px;
+  line-height: 1.4;
+}
+.passive-tooltip .tt-keystone {
+  display: inline-block;
+  margin-bottom: 3px;
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  background: var(--gold);
+  color: var(--bg);
+  border-radius: 3px;
+  padding: 1px 5px;
+  font-weight: 700;
+}
+
+/* ── Vampire Survivors weapon layer (build tab) ──────────────────── */
+.build-weapons-slots-used {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: none;
+  letter-spacing: 0;
+  margin-left: auto;
+}
+
+/* 2-column grid on narrow mobile, 5-col on wider panels */
+.weapons-pick-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 6px;
+}
+@media (min-width: 360px) {
+  .weapons-pick-grid {
+    grid-template-columns: repeat(5, 1fr);
+  }
+}
+
+.weapon-cell {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 7px 8px;
+  cursor: pointer;
+  position: relative;
+  transition: border-color 0.12s, background 0.12s;
+  min-width: 0;
+}
+.weapon-cell:hover:not(.weapon-locked):not(.busy) {
+  border-color: var(--accent);
+  background: #1f1f27;
+}
+.weapon-cell.weapon-equipped {
+  border-color: var(--accent);
+  background: rgba(191, 148, 255, 0.08);
+}
+.weapon-cell.weapon-active {
+  border-color: var(--gold);
+  background: rgba(255, 200, 87, 0.07);
+}
+.weapon-cell.weapon-locked {
+  opacity: 0.45;
+  cursor: default;
+}
+.weapon-cell.busy {
+  opacity: 0.6;
+  cursor: wait;
+}
+.weapon-name {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.weapon-kind {
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+  margin-top: 1px;
+}
+.weapon-stats {
+  font-size: 10px;
+  color: #7c8caa;
+  margin-top: 2px;
+  font-variant-numeric: tabular-nums;
+}
+.weapon-check {
+  position: absolute;
+  top: 4px;
+  right: 5px;
+  font-size: 10px;
+  color: var(--gold);
+  line-height: 1;
+}
+.weapon-cell.weapon-active .weapon-check {
+  color: var(--gold);
+}
+
+/* Faint state alert — shown when fainted > 0 */
+.weapons-faint-alert {
+  font-size: 12px;
+  color: var(--danger);
+  background: rgba(240, 71, 71, 0.08);
+  border: 1px solid rgba(240, 71, 71, 0.25);
+  border-radius: 5px;
+  padding: 5px 9px;
+  margin-bottom: 8px;
+  line-height: 1.5;
+}
+
+/* Active evolutions banner */
+.weapons-evolutions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 5px;
+  margin-bottom: 8px;
+}
+.weapons-evol-label {
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--muted);
+  margin-right: 2px;
+}
+.weapons-evol-pill {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--gold);
+  background: rgba(255, 200, 87, 0.10);
+  border: 1px solid rgba(255, 200, 87, 0.28);
+  border-radius: 10px;
+  padding: 2px 8px;
+}
+
+/* ── Footer ────────────────────────────────────────────────────────── */
+.footer-bar {
+  margin-top: 6px;
+  padding: 6px 0;
+  color: var(--muted);
+  font-size: 11px;
+  text-align: center;
+  flex-shrink: 0;
+}
+.footer-bar #footer-login {
+  color: var(--text);
+}
