@@ -35,6 +35,18 @@ function git(root, args, allowFailure = false) {
   }
 }
 
+function gitOk(root, args) {
+  try {
+    execFileSync("git", ["-C", root, ...args], {
+      stdio: ["ignore", "ignore", "pipe"],
+      maxBuffer: 32 * 1024 * 1024,
+    });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 function changedFiles(root, base, noDiffRequired) {
   const output = git(root, ["diff", "--name-only", `${base}...HEAD`], noDiffRequired);
   return output.split(/\r?\n/).filter(Boolean);
@@ -56,6 +68,93 @@ function isSourceFile(file) {
 
 function isTestFile(file) {
   return /^services\/[^/]+\/(test|integrations)\//.test(file);
+}
+
+const deniedScriptKeys = new Set([
+  "deploy",
+  "verify:deploy",
+  "predeploy",
+  "postdeploy",
+  "prepublish",
+  "postpublish",
+  "prepare",
+  "preinstall",
+  "install",
+  "postinstall",
+]);
+
+function isDeniedScriptKey(key) {
+  return key.startsWith("deploy:") || deniedScriptKeys.has(key);
+}
+
+function inspectPackageState(root, rev, file) {
+  const blobRef = `${rev}:${file}`;
+  if (!gitOk(root, ["cat-file", "-e", blobRef])) {
+    return { ok: true, scripts: new Map(), missing: true };
+  }
+
+  let parsed;
+  try {
+    parsed = JSON.parse(git(root, ["show", blobRef]));
+  } catch (error) {
+    return {
+      ok: false,
+      reason: `${file} at ${rev} is not valid JSON: ${error instanceof Error ? error.message : String(error)}`,
+    };
+  }
+
+  if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) {
+    return { ok: false, reason: `${file} at ${rev} is not a JSON object` };
+  }
+
+  const scriptsValue = Object.prototype.hasOwnProperty.call(parsed, "scripts") ? parsed.scripts : {};
+  if (scriptsValue === null || typeof scriptsValue !== "object" || Array.isArray(scriptsValue)) {
+    return { ok: false, reason: `${file} at ${rev} has a non-object scripts field` };
+  }
+
+  const scripts = new Map();
+  for (const [key, value] of Object.entries(scriptsValue)) {
+    if (typeof value !== "string") {
+      return { ok: false, reason: `${file} at ${rev} has a non-string script for ${key}` };
+    }
+    scripts.set(key, value);
+  }
+
+  return { ok: true, scripts, missing: false };
+}
+
+function checkServicePackageScriptDrift(root, base, files, allowAutomationChange) {
+  const findings = [];
+  const changedPackages = files.filter((file) => /^services\/[^/]+\/package\.json$/.test(file));
+  for (const file of changedPackages) {
+    const previous = inspectPackageState(root, base, file);
+    const current = inspectPackageState(root, "HEAD", file);
+
+    if (!previous.ok || !current.ok) {
+      if (!allowAutomationChange) {
+        findings.push(
+          `unable to inspect ${file}: ${previous.reason || current.reason || "unknown package state error"}`,
+        );
+      }
+      continue;
+    }
+
+    const keys = new Set([
+      ...Array.from(previous.scripts.keys()).filter(isDeniedScriptKey),
+      ...Array.from(current.scripts.keys()).filter(isDeniedScriptKey),
+    ]);
+    for (const key of keys) {
+      const oldValue = previous.scripts.get(key);
+      const newValue = current.scripts.get(key);
+      if (oldValue === newValue) continue;
+      if (!allowAutomationChange) {
+        findings.push(
+          `${file} changed denied script ${key} (${oldValue === undefined ? "added" : newValue === undefined ? "removed" : "modified"})`,
+        );
+      }
+    }
+  }
+  return findings;
 }
 
 function main() {
@@ -90,6 +189,8 @@ function main() {
       findings.push(`source changes in ${service} need matching tests or public integration updates`);
     }
   }
+
+  findings.push(...checkServicePackageScriptDrift(root, args.base, files, args.allowAutomationChange));
 
   const diff = diffText(root, args.base, args.noDiffRequired);
   const secretPatterns = [

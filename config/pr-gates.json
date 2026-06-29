@@ -17,8 +17,11 @@
       "name": "Suite automation syntax",
       "commands": [
         { "service": "suite", "cwd": ".", "cmd": "node --check scripts/run-gates.mjs" },
+        { "service": "suite", "cwd": ".", "cmd": "node --check scripts/notify-discord-deploy.mjs" },
         { "service": "suite", "cwd": ".", "cmd": "node --check scripts/review-policy.mjs" },
-        { "service": "suite", "cwd": ".", "cmd": "bash -lc 'for f in scripts/*.sh; do bash -n \"$f\"; done'" }
+        { "service": "suite", "cwd": ".", "cmd": "node --check scripts/webhook-server.mjs" },
+        { "service": "suite", "cwd": ".", "cmd": "bash -lc 'for f in scripts/*.sh; do bash -n \"$f\"; done'" },
+        { "service": "suite", "cwd": ".", "cmd": "node --test test/automation-hardening.test.mjs" }
       ]
     },
     {
