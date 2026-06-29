@@ -242,6 +242,133 @@ test("review-policy blocks malformed changed service package state", () => {
   }
 });
 
+test("review-policy blocks direct generated MMO snapshot changes", () => {
+  const root = createGitRepo();
+  try {
+    writeFileSync(path.join(root, "README.md"), "fixture\n");
+    gitCommit(root, "base");
+    mkdirSync(path.join(root, "services", "mmo", "server"), { recursive: true });
+    writeFileSync(path.join(root, "services", "mmo", "server", "server.js"), "export {};\n");
+    gitCommit(root, "edit generated mmo service");
+
+    const result = execExpectFailure(
+      "node",
+      [reviewPolicy, "--root", root, "--base", "HEAD~1"],
+      { cwd: repoRoot },
+    );
+    assert.match(result.stderr, /generated mmo snapshot changed in public-suite/);
+    assert.match(result.stderr, /https:\/\/github\.com\/sigmashakeinc\/sigmashake-mmo/);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("review-policy blocks direct generated VCS snapshot changes", () => {
+  const root = createGitRepo();
+  try {
+    writeFileSync(path.join(root, "README.md"), "fixture\n");
+    gitCommit(root, "base");
+    mkdirSync(path.join(root, "services", "vcs", "src"), { recursive: true });
+    writeFileSync(path.join(root, "services", "vcs", "src", "index.ts"), "export {};\n");
+    gitCommit(root, "edit generated vcs service");
+
+    const result = execExpectFailure(
+      "node",
+      [reviewPolicy, "--root", root, "--base", "HEAD~1"],
+      { cwd: repoRoot },
+    );
+    assert.match(result.stderr, /generated vcs snapshot changed in public-suite/);
+    assert.match(result.stderr, /https:\/\/github\.com\/sigmashakeinc\/sigmashake-vcs/);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("review-policy blocks generated component documentation changes", () => {
+  const root = createGitRepo();
+  try {
+    writeFileSync(path.join(root, "README.md"), "fixture\n");
+    gitCommit(root, "base");
+    mkdirSync(path.join(root, "services", "abyss"), { recursive: true });
+    writeFileSync(path.join(root, "services", "abyss", "README.md"), "component docs\n");
+    gitCommit(root, "edit generated abyss docs");
+
+    const result = execExpectFailure(
+      "node",
+      [reviewPolicy, "--root", root, "--base", "HEAD~1"],
+      { cwd: repoRoot },
+    );
+    assert.match(result.stderr, /generated abyss snapshot changed in public-suite/);
+    assert.match(result.stderr, /https:\/\/github\.com\/sigmashakeinc\/sigmashake-abyss/);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("review-policy accepts generated component changes only with explicit override", () => {
+  const root = createGitRepo();
+  try {
+    writeFileSync(path.join(root, "README.md"), "fixture\n");
+    gitCommit(root, "base");
+    mkdirSync(path.join(root, "services", "vcs", "src"), { recursive: true });
+    mkdirSync(path.join(root, "services", "vcs", "test"), { recursive: true });
+    writeFileSync(path.join(root, "services", "vcs", "src", "index.ts"), "export {};\n");
+    writeFileSync(path.join(root, "services", "vcs", "test", "index.test.ts"), "export {};\n");
+    gitCommit(root, "edit generated vcs with tests");
+
+    const output = run(
+      "node",
+      [reviewPolicy, "--root", root, "--base", "HEAD~1", "--allow-generated-service-change"],
+      { cwd: repoRoot },
+    );
+    assert.match(output, /\[review-policy\] passed/);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("review-policy accepts generated component changes with explicit env override", () => {
+  const root = createGitRepo();
+  try {
+    writeFileSync(path.join(root, "README.md"), "fixture\n");
+    gitCommit(root, "base");
+    mkdirSync(path.join(root, "services", "mmo", "test"), { recursive: true });
+    writeFileSync(path.join(root, "services", "mmo", "test", "fixture.test.js"), "export {};\n");
+    gitCommit(root, "edit generated mmo test");
+
+    const output = run(
+      "node",
+      [reviewPolicy, "--root", root, "--base", "HEAD~1"],
+      {
+        cwd: repoRoot,
+        env: { ...process.env, ALLOW_GENERATED_SERVICE_CHANGE: "1" },
+      },
+    );
+    assert.match(output, /\[review-policy\] passed/);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("review-policy allows root suite documentation changes", () => {
+  const root = createGitRepo();
+  try {
+    writeFileSync(path.join(root, "README.md"), "fixture\n");
+    gitCommit(root, "base");
+    writeFileSync(path.join(root, "README.md"), "suite docs update\n");
+    gitCommit(root, "edit suite docs");
+
+    const output = run(
+      "node",
+      [reviewPolicy, "--root", root, "--base", "HEAD~1"],
+      { cwd: repoRoot },
+    );
+    assert.match(output, /\[review-policy\] passed/);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
 test("deploy-from-host refuses missing host deploy commands", () => {
   const root = createGitRepo();
   try {
@@ -344,6 +471,14 @@ test("review-pr refuses auto-merge for automation-change overrides", () => {
     env: { ...process.env, ALLOW_AUTOMATION_CHANGE: "1" },
   });
   assert.match(result.stderr, /refusing --merge\/--deploy when ALLOW_AUTOMATION_CHANGE=1/);
+});
+
+test("review-pr refuses auto-merge for generated-service overrides", () => {
+  const result = execExpectFailure("bash", [reviewPr, "1", "--merge"], {
+    cwd: repoRoot,
+    env: { ...process.env, ALLOW_GENERATED_SERVICE_CHANGE: "1" },
+  });
+  assert.match(result.stderr, /refusing --merge\/--deploy when ALLOW_GENERATED_SERVICE_CHANGE=1/);
 });
 
 test("webhook-server requires HMAC and persistently rejects duplicate deliveries", async () => {
