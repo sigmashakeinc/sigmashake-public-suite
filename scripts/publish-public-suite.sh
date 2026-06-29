@@ -179,6 +179,15 @@ Generated from public component mirrors.
 - mmo: https://github.com/$MMO_REPO @ $MMO_SHA
 - abyss: https://github.com/$ABYSS_REPO @ $ABYSS_SHA
 - vcs: https://github.com/$VCS_REPO @ $VCS_SHA
+
+The component directories are generated snapshots. Send service code,
+contracts, tests, and component docs to the component mirror listed above,
+then regenerate this suite from the accepted mirror commits.
+
+Suite PRs may update this generated provenance file, root docs, scaffold,
+configuration, and host automation. Direct edits under services/mmo,
+services/abyss, or services/vcs are rejected by the host review policy unless
+a maintainer explicitly runs a non-merge manual override.
 EOF
 }
 

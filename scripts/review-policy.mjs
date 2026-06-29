@@ -8,6 +8,7 @@ function parseArgs(argv) {
     root: process.cwd(),
     base: "origin/main",
     allowAutomationChange: process.env.ALLOW_AUTOMATION_CHANGE === "1",
+    allowGeneratedServiceChange: process.env.ALLOW_GENERATED_SERVICE_CHANGE === "1",
     noDiffRequired: false,
   };
 
@@ -16,6 +17,7 @@ function parseArgs(argv) {
     if (arg === "--root") args.root = argv[++i];
     else if (arg === "--base") args.base = argv[++i];
     else if (arg === "--allow-automation-change") args.allowAutomationChange = true;
+    else if (arg === "--allow-generated-service-change") args.allowGeneratedServiceChange = true;
     else if (arg === "--no-diff-required") args.noDiffRequired = true;
     else throw new Error(`Unknown argument: ${arg}`);
   }
@@ -58,6 +60,17 @@ function diffText(root, base, noDiffRequired) {
 
 function serviceOf(file) {
   const match = file.match(/^services\/([^/]+)\//);
+  return match ? match[1] : "";
+}
+
+const componentRepos = new Map([
+  ["mmo", "https://github.com/sigmashakeinc/sigmashake-mmo"],
+  ["abyss", "https://github.com/sigmashakeinc/sigmashake-abyss"],
+  ["vcs", "https://github.com/sigmashakeinc/sigmashake-vcs"],
+]);
+
+function generatedComponentServiceOf(file) {
+  const match = file.match(/^services\/(mmo|abyss|vcs)\//);
   return match ? match[1] : "";
 }
 
@@ -171,6 +184,25 @@ function main() {
   for (const file of files) {
     if (deniedPath.test(file)) {
       findings.push(`blocked private/generated path changed: ${file}`);
+    }
+  }
+
+  const generatedServiceChanges = new Map();
+  for (const file of files) {
+    const service = generatedComponentServiceOf(file);
+    if (!service) continue;
+    if (!generatedServiceChanges.has(service)) generatedServiceChanges.set(service, []);
+    generatedServiceChanges.get(service).push(file);
+  }
+  if (generatedServiceChanges.size && !args.allowGeneratedServiceChange) {
+    for (const [service, changed] of generatedServiceChanges.entries()) {
+      findings.push(
+        [
+          `generated ${service} snapshot changed in public-suite: ${changed.join(", ")}`,
+          `send component changes to ${componentRepos.get(service)} via fork PR;`,
+          "the suite services tree is regenerated from component mirrors.",
+        ].join(" "),
+      );
     }
   }
 

@@ -27,6 +27,10 @@ scripts/
 `services/` is generated during publishing from public component mirrors. The
 private mono checkout stores only the suite scaffold and automation.
 
+The component directories are immutable snapshots for suite PRs. Component
+code, contracts, tests, and component docs are reviewed in the public component
+mirrors first, then the suite is regenerated from those mirrors.
+
 ## Public Safety Boundary
 
 The combined suite is composed only from public component mirrors. The publisher
@@ -52,6 +56,11 @@ The gate manifest has three categories:
 The host review loop executes the trusted manifest from the maintainer checkout
 against a temporary PR clone. A PR cannot weaken the automation that is judging
 it unless the maintainer explicitly allows automation changes.
+
+Generated component snapshot edits under `services/mmo`, `services/abyss`, and
+`services/vcs` are rejected by default. A maintainer override can inspect such
+changes manually, but the automated host loop refuses to merge or deploy while
+that override is set.
 
 The preferred trigger is a GitHub webhook delivered to `webhook-server.mjs`.
 Polling is only a fallback for hosts that cannot receive inbound webhook

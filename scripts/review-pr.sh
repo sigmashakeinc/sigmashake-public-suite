@@ -52,6 +52,8 @@ Usage:
 Environment:
   SUITE_REPO                 owner/repo to review
   ALLOW_AUTOMATION_CHANGE=1  allow PRs that edit review/deploy automation
+  ALLOW_GENERATED_SERVICE_CHANGE=1
+                             allow PRs that edit generated service snapshots
 EOF
 }
 
@@ -89,6 +91,10 @@ fi
 
 if [ "${ALLOW_AUTOMATION_CHANGE:-0}" = "1" ] && { [ "$MERGE" -eq 1 ] || [ "$DEPLOY" -eq 1 ]; }; then
   echo "[review-pr] refusing --merge/--deploy when ALLOW_AUTOMATION_CHANGE=1" >&2
+  exit 1
+fi
+if [ "${ALLOW_GENERATED_SERVICE_CHANGE:-0}" = "1" ] && { [ "$MERGE" -eq 1 ] || [ "$DEPLOY" -eq 1 ]; }; then
+  echo "[review-pr] refusing --merge/--deploy when ALLOW_GENERATED_SERVICE_CHANGE=1" >&2
   exit 1
 fi
 
@@ -129,6 +135,9 @@ review_policy_args=(
 )
 if [ "${ALLOW_AUTOMATION_CHANGE:-0}" = "1" ]; then
   review_policy_args+=(--allow-automation-change)
+fi
+if [ "${ALLOW_GENERATED_SERVICE_CHANGE:-0}" = "1" ]; then
+  review_policy_args+=(--allow-generated-service-change)
 fi
 
 node "$TRUSTED_ROOT/scripts/review-policy.mjs" "${review_policy_args[@]}"

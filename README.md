@@ -11,7 +11,27 @@ state, Cloudflare production IDs, local operator paths, secrets, `.wrangler/`,
 `.sigmashake/`, dependency folders, build output, and MMO runtime data are not
 allowed in the public suite.
 
+## Source Of Truth
+
+The suite is an aggregate package. The service directories under
+`services/mmo`, `services/abyss`, and `services/vcs` are generated snapshots of
+the public component mirrors and are replaced during suite publishing.
+
+Send component code, contracts, tests, and component docs to the component repo:
+
+- MMO: https://github.com/sigmashakeinc/sigmashake-mmo
+- Abyss: https://github.com/sigmashakeinc/sigmashake-abyss
+- VCS: https://github.com/sigmashakeinc/sigmashake-vcs
+
+Use this suite repo for aggregate scaffold, suite automation, host review/deploy
+automation, and root-level collaboration docs. A PR that edits a generated
+component snapshot in `services/{mmo,abyss,vcs}` is rejected by the host review
+policy because the change would be overwritten by the next mirror publish.
+
 ## Contributor Flow
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for path-based PR routing. To verify the
+aggregate suite locally:
 
 ```sh
 bun install
