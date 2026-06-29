@@ -4,9 +4,42 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 TRUSTED_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 SUITE_REPO="${SUITE_REPO:-sigmashakeinc/sigmashake-public-suite}"
+STATUS_CONTEXT="${REVIEW_STATUS_CONTEXT:-sigmashake/public-suite-gates}"
 MERGE=0
 DEPLOY=0
 PR_NUMBER=""
+STATUS_FINALIZED=0
+
+set_commit_status() {
+  local state="$1"
+  local description="$2"
+  if [ -z "${HEAD_SHA:-}" ]; then
+    return 0
+  fi
+
+  local args=(
+    -f "state=$state"
+    -f "context=$STATUS_CONTEXT"
+    -f "description=$description"
+  )
+  if [ -n "${REVIEW_STATUS_TARGET_URL:-}" ]; then
+    args+=(-f "target_url=$REVIEW_STATUS_TARGET_URL")
+  fi
+
+  if ! gh api -X POST "repos/${SUITE_REPO}/statuses/${HEAD_SHA}" "${args[@]}" >/dev/null; then
+    echo "[review-pr] failed to publish GitHub status ${STATUS_CONTEXT}=${state}" >&2
+    return 1
+  fi
+  echo "[review-pr] status ${STATUS_CONTEXT}=${state}"
+}
+
+on_exit() {
+  local code=$?
+  if [ "$code" -ne 0 ] && [ "$STATUS_FINALIZED" -eq 0 ]; then
+    set_commit_status failure "Automated host review failed before merge." || true
+  fi
+}
+trap on_exit EXIT
 
 usage() {
   cat <<'EOF'
@@ -73,6 +106,7 @@ if [ -z "$HEAD_SHA" ]; then
   echo "[review-pr] unable to resolve PR head SHA" >&2
   exit 1
 fi
+set_commit_status pending "Automated host review is running the 19-gate suite."
 
 git fetch origin "$BASE_REF"
 gh pr checkout "$PR_NUMBER" --repo "$SUITE_REPO"
@@ -113,9 +147,12 @@ fi
 gh pr review "$PR_NUMBER" --repo "$SUITE_REPO" --approve \
   --body "Automated host review passed for ${HEAD_SHA}: review policy, sandboxed bootstrap, sandboxed preflight, and all 19 sandboxed test gates completed successfully."
 
+set_commit_status success "Automated host review passed all 19 gates."
+
 if [ "$MERGE" -eq 1 ]; then
   gh pr merge "$PR_NUMBER" --repo "$SUITE_REPO" --squash --delete-branch --match-head-commit "$HEAD_SHA"
 fi
+STATUS_FINALIZED=1
 
 if [ "$DEPLOY" -eq 1 ]; then
   git fetch origin "$BASE_REF"

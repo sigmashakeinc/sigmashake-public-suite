@@ -14,7 +14,7 @@ const suiteRepo = process.env.SUITE_REPO || "sigmashakeinc/sigmashake-public-sui
 const autoMerge = process.env.AUTO_MERGE === "1";
 const autoDeploy = process.env.AUTO_DEPLOY === "1";
 const triggerOnPr = process.env.TRIGGER_ON_PR !== "0";
-const triggerOnWorkflowSuccess = process.env.TRIGGER_ON_WORKFLOW_SUCCESS !== "0";
+const triggerOnWorkflowSuccess = process.env.TRIGGER_ON_WORKFLOW_SUCCESS === "1";
 
 const queue = [];
 const queuedKeys = new Set();
