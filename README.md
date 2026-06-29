@@ -85,8 +85,10 @@ bun run review:webhook
 ```
 
 GitHub sends an event to the host, the host verifies the
-`X-Hub-Signature-256` HMAC, queues the PR, runs the trusted gates, and deploys
-only after the PR has passed, merged, and the host checkout has advanced.
+`X-Hub-Signature-256` HMAC, persists the delivery and job, runs the trusted
+gates, and merges only after deploy readiness has been validated. With
+`AUTO_DEPLOY=1`, the merged PR event deploys the exact `merge_commit_sha` and
+publishes a separate deploy status.
 
 Polling remains available as a fallback when inbound webhooks are not practical:
 
@@ -130,14 +132,20 @@ required evidence lines are present.
 
 ## Deploying
 
-Deploys are host-only and sequential. The default VCS and Abyss commands call
-their public `bun run deploy` scripts. MMO deploys are host-specific and must be
-provided through `MMO_DEPLOY_COMMAND`.
+Deploys are host-only and sequential. Every deployed service must provide an
+absolute, executable, host-owned deploy command and verify command outside this
+repository.
 
 ```sh
-MMO_DEPLOY_COMMAND='systemctl --user restart sigmashake-mmo-public.service' \
+VCS_DEPLOY_COMMAND='/srv/sigmashake-public-suite-host/deploy-vcs.sh' \
+ABYSS_DEPLOY_COMMAND='/srv/sigmashake-public-suite-host/deploy-abyss.sh' \
+MMO_DEPLOY_COMMAND='/srv/sigmashake-public-suite-host/deploy-mmo.sh' \
+VCS_VERIFY_COMMAND='/srv/sigmashake-public-suite-host/verify-vcs.sh' \
+ABYSS_VERIFY_COMMAND='/srv/sigmashake-public-suite-host/verify-abyss.sh' \
+MMO_VERIFY_COMMAND='/srv/sigmashake-public-suite-host/verify-mmo.sh' \
   bash scripts/deploy-from-host.sh --confirm
 ```
 
 The deploy script refuses to run from a dirty checkout unless
-`--allow-dirty` is passed.
+`--allow-dirty` is passed. `--validate-only` checks host deploy wiring without
+running service deploy scripts.

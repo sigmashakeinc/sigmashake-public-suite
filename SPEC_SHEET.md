@@ -71,11 +71,12 @@ traffic.
 Deploys are sequential and host-owned:
 
 1. run trusted gates;
-2. merge the PR;
-3. pull the updated public suite on the host;
-4. deploy VCS;
-5. deploy Abyss;
-6. deploy MMO with a host-provided command;
-7. record failures immediately and stop on first failed service.
+2. validate host deploy and verify command paths before merge when deployment is armed;
+3. merge the PR;
+4. deploy the exact merged commit SHA from the merged PR webhook event;
+5. deploy VCS;
+6. deploy Abyss;
+7. deploy MMO with a host-provided command;
+8. record failures immediately and stop on first failed service.
 
 The public repository never stores deploy secrets.

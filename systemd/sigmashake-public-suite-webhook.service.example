@@ -18,10 +18,12 @@ Environment=TRIGGER_ON_PR=1
 Environment=TRIGGER_ON_WORKFLOW_SUCCESS=1
 Environment=GITHUB_WEBHOOK_SECRET=replace-with-host-secret
 # Enable AUTO_DEPLOY=1 only after setting deploy and verification commands.
-# Environment=VCS_VERIFY_COMMAND=curl -fsS https://vcs.example.com/healthz
-# Environment=ABYSS_VERIFY_COMMAND=curl -fsS https://abyss.example.com/healthz
-# Environment=MMO_DEPLOY_COMMAND=/srv/sigmashake-public-suite/deploy-mmo.sh
-# Environment=MMO_VERIFY_COMMAND=curl -fsS https://mmo.example.com/healthz
+# Environment=VCS_DEPLOY_COMMAND=/srv/sigmashake-public-suite-host/deploy-vcs.sh
+# Environment=ABYSS_DEPLOY_COMMAND=/srv/sigmashake-public-suite-host/deploy-abyss.sh
+# Environment=MMO_DEPLOY_COMMAND=/srv/sigmashake-public-suite-host/deploy-mmo.sh
+# Environment=VCS_VERIFY_COMMAND=/srv/sigmashake-public-suite-host/verify-vcs.sh
+# Environment=ABYSS_VERIFY_COMMAND=/srv/sigmashake-public-suite-host/verify-abyss.sh
+# Environment=MMO_VERIFY_COMMAND=/srv/sigmashake-public-suite-host/verify-mmo.sh
 
 [Install]
 WantedBy=default.target
