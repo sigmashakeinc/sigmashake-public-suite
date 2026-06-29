@@ -7,11 +7,12 @@ ALLOW_DIRTY=0
 SERVICES="vcs,abyss,mmo"
 VERIFY=1
 EXPECTED_SHA=""
+VALIDATE_ONLY=0
 
 usage() {
   cat <<'EOF'
 Usage:
-  bash scripts/deploy-from-host.sh --confirm [--root <path>] [--services vcs,abyss,mmo] [--allow-dirty] [--skip-verify] [--expected-sha <sha>]
+  bash scripts/deploy-from-host.sh --confirm [--root <path>] [--services vcs,abyss,mmo] [--allow-dirty] [--skip-verify] [--expected-sha <sha>] [--validate-only]
 
 Environment:
   VCS_DEPLOY_COMMAND    absolute host-owned script path for VCS deploy
@@ -48,6 +49,10 @@ while [ "$#" -gt 0 ]; do
     --expected-sha)
       EXPECTED_SHA="$2"
       shift 2
+      ;;
+    --validate-only)
+      VALIDATE_ONLY=1
+      shift
       ;;
     -h|--help)
       usage
@@ -189,6 +194,19 @@ run_verify() {
 }
 
 IFS=',' read -r -a selected <<< "$SERVICES"
+if [ "$VALIDATE_ONLY" -eq 1 ]; then
+  for service in "${selected[@]}"; do
+    env_name="$(command_var_for_service "$service" "deploy")"
+    validate_host_command "$env_name" "${!env_name:-}" >/dev/null
+    if [ "$VERIFY" -eq 1 ]; then
+      env_name="$(command_var_for_service "$service" "verify")"
+      validate_host_command "$env_name" "${!env_name:-}" >/dev/null
+    fi
+  done
+  echo "[deploy] validation complete (verify=$VERIFY)"
+  exit 0
+fi
+
 for service in "${selected[@]}"; do
   run_service "$service"
   if [ "$VERIFY" -eq 1 ]; then
