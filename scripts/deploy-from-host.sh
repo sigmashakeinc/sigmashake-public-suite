@@ -6,20 +6,20 @@ CONFIRM=0
 ALLOW_DIRTY=0
 SERVICES="vcs,abyss,mmo"
 VERIFY=1
+EXPECTED_SHA=""
 
 usage() {
   cat <<'EOF'
 Usage:
-  bash scripts/deploy-from-host.sh --confirm [--root <path>] [--services vcs,abyss,mmo] [--allow-dirty] [--skip-verify]
+  bash scripts/deploy-from-host.sh --confirm [--root <path>] [--services vcs,abyss,mmo] [--allow-dirty] [--skip-verify] [--expected-sha <sha>]
 
-Environment overrides:
-  VCS_DEPLOY_COMMAND    default: cd services/vcs && bun run deploy
-  ABYSS_DEPLOY_COMMAND  default: cd services/abyss && bun run deploy
-  MMO_DEPLOY_COMMAND    required for MMO deploys
-  VCS_VERIFY_COMMAND    service-specific post-deploy verification
-  ABYSS_VERIFY_COMMAND  service-specific post-deploy verification
-  MMO_VERIFY_COMMAND    service-specific post-deploy verification
-  DEPLOY_VERIFY_COMMAND generic post-deploy verification; {service} is replaced
+Environment:
+  VCS_DEPLOY_COMMAND    absolute host-owned script path for VCS deploy
+  ABYSS_DEPLOY_COMMAND  absolute host-owned script path for Abyss deploy
+  MMO_DEPLOY_COMMAND    absolute host-owned script path for MMO deploy
+  VCS_VERIFY_COMMAND    absolute host-owned script path for VCS verify
+  ABYSS_VERIFY_COMMAND  absolute host-owned script path for Abyss verify
+  MMO_VERIFY_COMMAND    absolute host-owned script path for MMO verify
 EOF
 }
 
@@ -45,6 +45,10 @@ while [ "$#" -gt 0 ]; do
       VERIFY=0
       shift
       ;;
+    --expected-sha)
+      EXPECTED_SHA="$2"
+      shift 2
+      ;;
     -h|--help)
       usage
       exit 0
@@ -62,7 +66,64 @@ if [ "$CONFIRM" -ne 1 ]; then
   exit 1
 fi
 
-ROOT="$(cd "$ROOT" && pwd)"
+ROOT="$(cd "$ROOT" && pwd -P)"
+
+reject_command() {
+  local env_name="$1"
+  local message="$2"
+  echo "[deploy] ${env_name}: ${message}" >&2
+  exit 1
+}
+
+validate_host_command() {
+  local env_name="$1"
+  local candidate="$2"
+  local resolved=""
+
+  if [ -z "$candidate" ]; then
+    reject_command "$env_name" "must be set to an absolute host script path"
+  fi
+
+  case "$candidate" in
+    /*) ;;
+    *)
+      reject_command "$env_name" "must be an absolute path"
+      ;;
+  esac
+
+  case "$candidate" in
+    *[!A-Za-z0-9._/+:-]*)
+      reject_command "$env_name" "contains unsupported characters"
+      ;;
+  esac
+
+  if [ -L "$candidate" ]; then
+    reject_command "$env_name" "must not be a symlink: $candidate"
+  fi
+
+  resolved="$(realpath -- "$candidate")" || reject_command "$env_name" "failed to resolve path"
+
+  if [ ! -f "$resolved" ]; then
+    reject_command "$env_name" "does not exist: $candidate"
+  fi
+
+  if [ ! -x "$resolved" ]; then
+    reject_command "$env_name" "is not executable: $candidate"
+  fi
+
+  if [ ! -O "$resolved" ]; then
+    reject_command "$env_name" "must be owned by the current host user"
+  fi
+
+  case "$resolved" in
+    "$ROOT"|"$ROOT"/*)
+      reject_command "$env_name" "must point outside the repository root"
+      ;;
+  esac
+
+  printf '%s\n' "$resolved"
+}
+
 if [ "$ALLOW_DIRTY" -ne 1 ]; then
   dirty="$(git -C "$ROOT" status --porcelain --untracked-files=all)"
   if [ -n "$dirty" ]; then
@@ -72,59 +133,59 @@ if [ "$ALLOW_DIRTY" -ne 1 ]; then
   fi
 fi
 
-run_service() {
+if [ -n "$EXPECTED_SHA" ]; then
+  actual_sha="$(git -C "$ROOT" rev-parse HEAD)"
+  if [ "$actual_sha" != "$EXPECTED_SHA" ]; then
+    echo "[deploy] refusing to deploy unexpected revision: expected $EXPECTED_SHA got $actual_sha" >&2
+    exit 1
+  fi
+fi
+
+command_var_for_service() {
   local service="$1"
-  local command=""
-  case "$service" in
-    vcs)
-      command="${VCS_DEPLOY_COMMAND:-cd services/vcs && bun run deploy}"
-      ;;
-    abyss)
-      command="${ABYSS_DEPLOY_COMMAND:-cd services/abyss && bun run deploy}"
-      ;;
-    mmo)
-      if [ -z "${MMO_DEPLOY_COMMAND:-}" ]; then
-        echo "[deploy] MMO_DEPLOY_COMMAND is required for MMO deploys" >&2
-        exit 1
-      fi
-      command="$MMO_DEPLOY_COMMAND"
-      ;;
+  local kind="$2"
+  case "$service:$kind" in
+    vcs:deploy) echo "VCS_DEPLOY_COMMAND" ;;
+    abyss:deploy) echo "ABYSS_DEPLOY_COMMAND" ;;
+    mmo:deploy) echo "MMO_DEPLOY_COMMAND" ;;
+    vcs:verify) echo "VCS_VERIFY_COMMAND" ;;
+    abyss:verify) echo "ABYSS_VERIFY_COMMAND" ;;
+    mmo:verify) echo "MMO_VERIFY_COMMAND" ;;
     *)
-      echo "[deploy] unknown service: $service" >&2
+      echo "[deploy] unknown service/kind: $service/$kind" >&2
       exit 1
       ;;
   esac
-
-  echo "[deploy] $service: $command"
-  (cd "$ROOT" && sh -lc "$command")
 }
 
-package_has_verify_script() {
+run_host_command() {
   local service="$1"
-  [ -f "$ROOT/services/$service/package.json" ] || return 1
-  node -e 'const p=require(process.argv[1]); process.exit(p.scripts && p.scripts["verify:deploy"] ? 0 : 1)' \
-    "$ROOT/services/$service/package.json"
+  local kind="$2"
+  local env_name="$3"
+  local script_path="$4"
+  echo "[deploy] ${kind} ${service}: ${script_path}"
+  (
+    cd "$ROOT"
+    PUBLIC_SUITE_ROOT="$ROOT" PUBLIC_SUITE_SERVICE="$service" PUBLIC_SUITE_ACTION="$kind" "$script_path"
+  )
+}
+
+run_service() {
+  local service="$1"
+  local env_name=""
+  local script_path=""
+  env_name="$(command_var_for_service "$service" "deploy")"
+  script_path="$(validate_host_command "$env_name" "${!env_name:-}")"
+  run_host_command "$service" "deploy" "$env_name" "$script_path"
 }
 
 run_verify() {
   local service="$1"
-  local upper="${service^^}"
-  local service_var="${upper}_VERIFY_COMMAND"
-  local command="${!service_var:-}"
-  if [ -z "$command" ] && [ -n "${DEPLOY_VERIFY_COMMAND:-}" ]; then
-    command="${DEPLOY_VERIFY_COMMAND//\{service\}/$service}"
-  fi
-  if [ -z "$command" ] && package_has_verify_script "$service"; then
-    command="cd services/$service && bun run verify:deploy"
-  fi
-  if [ -z "$command" ]; then
-    echo "[deploy] post-deploy verification command required for $service" >&2
-    echo "[deploy] set ${upper}_VERIFY_COMMAND, DEPLOY_VERIFY_COMMAND, or add services/$service verify:deploy" >&2
-    exit 1
-  fi
-
-  echo "[deploy] verify $service: $command"
-  (cd "$ROOT" && sh -lc "$command")
+  local env_name=""
+  local script_path=""
+  env_name="$(command_var_for_service "$service" "verify")"
+  script_path="$(validate_host_command "$env_name" "${!env_name:-}")"
+  run_host_command "$service" "verify" "$env_name" "$script_path"
 }
 
 IFS=',' read -r -a selected <<< "$SERVICES"

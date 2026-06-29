@@ -2,6 +2,8 @@
 import { createServer } from "node:http";
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { spawn } from "node:child_process";
+import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
+import { homedir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -15,14 +17,23 @@ const autoMerge = process.env.AUTO_MERGE === "1";
 const autoDeploy = process.env.AUTO_DEPLOY === "1";
 const triggerOnPr = process.env.TRIGGER_ON_PR !== "0";
 const triggerOnWorkflowSuccess = process.env.TRIGGER_ON_WORKFLOW_SUCCESS === "1";
+const stateFile = process.env.PUBLIC_SUITE_WEBHOOK_STATE
+  || path.join(homedir(), ".sigmashake", "public-suite", "webhook-deliveries.json");
+const maxDeliveries = Number.parseInt(process.env.PUBLIC_SUITE_WEBHOOK_MAX_DELIVERIES || "2048", 10);
 
 const queue = [];
 const queuedKeys = new Set();
 const activeKeys = new Set();
+const deliveryRecords = new Map();
 let running = false;
 
 if (!secret) {
   console.error("GITHUB_WEBHOOK_SECRET is required");
+  process.exit(1);
+}
+
+if (!Number.isInteger(maxDeliveries) || maxDeliveries < 1) {
+  console.error("PUBLIC_SUITE_WEBHOOK_MAX_DELIVERIES must be a positive integer");
   process.exit(1);
 }
 
@@ -33,6 +44,90 @@ function verifySignature(body, signature) {
   const expectedBytes = Buffer.from(expected);
   return actualBytes.length === expectedBytes.length
     && timingSafeEqual(actualBytes, expectedBytes);
+}
+
+function persistDeliveryState() {
+  const directory = path.dirname(stateFile);
+  mkdirSync(directory, { recursive: true });
+  const tempFile = `${stateFile}.tmp`;
+  const payload = {
+    version: 1,
+    deliveries: Array.from(deliveryRecords.values()),
+  };
+  writeFileSync(tempFile, `${JSON.stringify(payload, null, 2)}\n`, { mode: 0o600 });
+  renameSync(tempFile, stateFile);
+}
+
+function loadDeliveryState() {
+  if (!existsSync(stateFile)) return;
+  const raw = readFileSync(stateFile, "utf8");
+  let parsed;
+  try {
+    parsed = JSON.parse(raw);
+  } catch (error) {
+    throw new Error(
+      `invalid webhook state at ${stateFile}: ${error instanceof Error ? error.message : String(error)}`,
+    );
+  }
+  const deliveries = parsed?.deliveries;
+  if (!Array.isArray(deliveries)) {
+    throw new Error(`invalid webhook state at ${stateFile}: deliveries must be an array`);
+  }
+  for (const entry of deliveries) {
+    if (!entry || typeof entry !== "object" || typeof entry.id !== "string") {
+      throw new Error(`invalid webhook state at ${stateFile}: malformed delivery record`);
+    }
+    deliveryRecords.set(entry.id, entry);
+  }
+  while (deliveryRecords.size > maxDeliveries) {
+    const oldest = deliveryRecords.keys().next().value;
+    if (!oldest) break;
+    deliveryRecords.delete(oldest);
+  }
+}
+
+function deliveryInfo(event, payload) {
+  if (event === "pull_request") {
+    return {
+      pr: Number.isInteger(payload.pull_request?.number) ? payload.pull_request.number : null,
+      sha: typeof payload.pull_request?.head?.sha === "string" ? payload.pull_request.head.sha : null,
+      reason: `pull_request.${payload.action || "unknown"}`,
+    };
+  }
+
+  if (event === "workflow_run") {
+    const pullRequests = Array.isArray(payload.workflow_run?.pull_requests)
+      ? payload.workflow_run.pull_requests.map((pr) => pr.number).filter(Number.isInteger)
+      : [];
+    return {
+      pr: pullRequests.length === 1 ? pullRequests[0] : null,
+      sha: typeof payload.workflow_run?.head_sha === "string" ? payload.workflow_run.head_sha : null,
+      reason: `workflow_run.${payload.action || "unknown"}.${payload.workflow_run?.conclusion || "unknown"}`,
+    };
+  }
+
+  return { pr: null, sha: null, reason: `${event || "unknown"}` };
+}
+
+function rememberDelivery(delivery, event, payload) {
+  const info = deliveryInfo(event, payload);
+  const record = {
+    id: delivery,
+    event,
+    pr: info.pr,
+    sha: info.sha,
+    reason: info.reason,
+    timestamp: new Date().toISOString(),
+  };
+  deliveryRecords.delete(delivery);
+  deliveryRecords.set(delivery, record);
+  while (deliveryRecords.size > maxDeliveries) {
+    const oldest = deliveryRecords.keys().next().value;
+    if (!oldest) break;
+    deliveryRecords.delete(oldest);
+  }
+  persistDeliveryState();
+  return record;
 }
 
 function enqueue(prNumber, reason, delivery) {
@@ -182,7 +277,18 @@ const server = createServer(async (request, response) => {
 
     const event = request.headers["x-github-event"] || "";
     const delivery = request.headers["x-github-delivery"] || "";
+    if (!delivery) {
+      send(response, 400, { ok: false, error: "missing_delivery" });
+      return;
+    }
+    if (deliveryRecords.has(delivery)) {
+      const existing = deliveryRecords.get(delivery);
+      console.log(`[webhook] duplicate delivery ignored: ${delivery}`);
+      send(response, 202, { ok: true, queued: 0, duplicate: true, event: existing?.event || event });
+      return;
+    }
     const payload = JSON.parse(body.toString("utf8"));
+    rememberDelivery(delivery, event, payload);
     const result = handleEvent(event, payload, delivery);
     send(response, 202, { ok: true, ...result });
   } catch (error) {
@@ -194,7 +300,10 @@ const server = createServer(async (request, response) => {
   }
 });
 
+loadDeliveryState();
+
 server.listen(port, host, () => {
   console.log(`[webhook] listening on http://${host}:${port}/github for ${suiteRepo}`);
   console.log(`[webhook] auto_merge=${autoMerge} auto_deploy=${autoDeploy}`);
+  console.log(`[webhook] delivery state=${stateFile} max=${maxDeliveries}`);
 });

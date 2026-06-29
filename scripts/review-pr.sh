@@ -38,6 +38,9 @@ on_exit() {
   if [ "$code" -ne 0 ] && [ "$STATUS_FINALIZED" -eq 0 ]; then
     set_commit_status failure "Automated host review failed before merge." || true
   fi
+  if [ -n "${WORKDIR:-}" ] && [ -d "$WORKDIR" ]; then
+    rm -r -- "$WORKDIR"
+  fi
 }
 trap on_exit EXIT
 
@@ -84,11 +87,15 @@ if [ -z "$PR_NUMBER" ]; then
   exit 1
 fi
 
+if [ "${ALLOW_AUTOMATION_CHANGE:-0}" = "1" ] && { [ "$MERGE" -eq 1 ] || [ "$DEPLOY" -eq 1 ]; }; then
+  echo "[review-pr] refusing --merge/--deploy when ALLOW_AUTOMATION_CHANGE=1" >&2
+  exit 1
+fi
+
 command -v gh >/dev/null 2>&1 || { echo "gh is required" >&2; exit 1; }
 command -v git >/dev/null 2>&1 || { echo "git is required" >&2; exit 1; }
 
 WORKDIR="$(mktemp -d "${TMPDIR:-/tmp}/sigmashake-public-suite-pr.XXXXXX")"
-trap 'rm -rf "$WORKDIR"' EXIT
 
 echo "[review-pr] repo: $SUITE_REPO"
 echo "[review-pr] pr: $PR_NUMBER"
@@ -116,9 +123,15 @@ if [ "$CHECKED_OUT_SHA" != "$HEAD_SHA" ]; then
   exit 1
 fi
 
-node "$TRUSTED_ROOT/scripts/review-policy.mjs" \
-  --root "$WORKDIR/repo" \
+review_policy_args=(
+  --root "$WORKDIR/repo"
   --base "origin/$BASE_REF"
+)
+if [ "${ALLOW_AUTOMATION_CHANGE:-0}" = "1" ]; then
+  review_policy_args+=(--allow-automation-change)
+fi
+
+node "$TRUSTED_ROOT/scripts/review-policy.mjs" "${review_policy_args[@]}"
 
 node "$TRUSTED_ROOT/scripts/run-gates.mjs" \
   --root "$WORKDIR/repo" \
@@ -156,9 +169,21 @@ STATUS_FINALIZED=1
 
 if [ "$DEPLOY" -eq 1 ]; then
   git fetch origin "$BASE_REF"
-  git checkout "$BASE_REF"
-  git pull --ff-only origin "$BASE_REF"
-  bash "$TRUSTED_ROOT/scripts/deploy-from-host.sh" --root "$WORKDIR/repo" --confirm
+  BASE_HEAD_SHA="$(git rev-parse "origin/$BASE_REF")"
+  git checkout --detach "$BASE_HEAD_SHA"
+  bash "$TRUSTED_ROOT/scripts/deploy-from-host.sh" \
+    --root "$WORKDIR/repo" \
+    --confirm \
+    --expected-sha "$BASE_HEAD_SHA"
+
+  if ! PR_NUMBER="$PR_NUMBER" \
+    SUITE_REPO="$SUITE_REPO" \
+    MERGED_SHA="$BASE_HEAD_SHA" \
+    DEPLOYED_SHA="$BASE_HEAD_SHA" \
+    DEPLOY_STATUS="deployed" \
+    node "$TRUSTED_ROOT/scripts/notify-discord-deploy.mjs"; then
+    echo "[review-pr] deploy notification failed after a successful deploy; leaving review/deploy successful and skipping retry" >&2
+  fi
 fi
 
 echo "[review-pr] complete"
