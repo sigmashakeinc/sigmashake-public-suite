@@ -2,9 +2,10 @@
 
 Generated from public component mirrors.
 
-- mmo: https://github.com/sigmashakeinc/sigmashake-mmo @ aa4f13d6daf3f9bb010ef080be6947674066b516
-  (merge preview of sigmashake-mmo PR #1 head 2341baa + mirror main d1181cd7;
-  preview branch: https://github.com/blackfirebitcoin/sigmashake-mmo/tree/sigmacraft-demo-p5-merge-preview)
+- mmo: https://github.com/sigmashakeinc/sigmashake-mmo @ d41ac00f011fdab408b2ac0ce60924b23998ff76
+  (mirror main 0e74b45 — PR #1 merged — plus the style-only lint/format
+  follow-up sigmashake-mmo#2; branch:
+  https://github.com/blackfirebitcoin/sigmashake-mmo/tree/lint-biome-clean)
 - abyss: https://github.com/sigmashakeinc/sigmashake-abyss @ 23b8fb5dddb1cf916a87f07acdbb89f3efa5e9f2
 - vcs: https://github.com/sigmashakeinc/sigmashake-vcs @ 31dd9812d81c83e5e66ff0d50b97c25d9ec16ed0
 
