@@ -542,6 +542,17 @@ describe("bridge brains harness", () => {
     expect((fetchCalls[0]?.init?.headers as Record<string, string>).authorization).toBe(
       "Bearer secret-key",
     );
+    const cerebrasBody = JSON.parse(String(fetchCalls[0]?.init?.body ?? "{}")) as {
+      messages?: Array<{ content?: string }>;
+    };
+    expect(cerebrasBody.messages?.[0]?.content).toContain("VibeCodeSim");
+    const prompt = JSON.parse(cerebrasBody.messages?.[1]?.content ?? "{}") as {
+      world?: { name?: string; rules?: string[] };
+    };
+    expect(prompt.world?.name).toBe("VibeCodeSim OBS survival room");
+    expect(prompt.world?.rules ?? []).toContain(
+      "Sleeping characters stay physically still until tagged awake by an awake character, one at a time.",
+    );
     expect(second.status).toBe(429);
     expect(JSON.parse(second.body)).toEqual({ ok: false, error: "brain_rate_limited" });
   });

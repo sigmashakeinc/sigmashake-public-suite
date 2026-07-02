@@ -2,9 +2,9 @@
 
 Generated from public component mirrors.
 
-- mmo: https://github.com/sigmashakeinc/sigmashake-mmo @ d1181cd77731fab8682bfccaa9d8d3b5a0a23400
+- mmo: https://github.com/sigmashakeinc/sigmashake-mmo @ 1dcf70745155f45e923f66d23e38c51540f9364b
 - abyss: https://github.com/sigmashakeinc/sigmashake-abyss @ 23b8fb5dddb1cf916a87f07acdbb89f3efa5e9f2
-- vcs: https://github.com/sigmashakeinc/sigmashake-vcs @ 31dd9812d81c83e5e66ff0d50b97c25d9ec16ed0
+- vcs: https://github.com/sigmashakeinc/sigmashake-vcs @ 403c2fe4501a449e3ac5a84265cd742cf824c883
 
 The component directories are generated snapshots. Send service code,
 contracts, tests, and component docs to the component mirror listed above,

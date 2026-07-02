@@ -55,7 +55,7 @@ import {
   gearEffects,
   spentPoints,
 } from "../../shared/stats.js";
-import { artChance, familyForBase, unlockedArts, WEAPON_FAMILIES } from "../../shared/weapons.js";
+import { familyForBase, unlockedArts, WEAPON_FAMILIES } from "../../shared/weapons.js";
 import { recommendedZone, unlockedZones, ZONES, zoneById } from "../../shared/zones.js";
 
 // ── RNG determinism ───────────────────────────────────────────────────────────

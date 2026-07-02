@@ -613,7 +613,7 @@ export function resolveEncounter({ fighter, enemies, ai, rng, inventory = [] }) 
     // Iterate a snapshot because DoT can kill (mutating `live`).
     for (const enemy of [...live]) {
       const m = ailing.get(enemy._idx);
-      if (!m || !m.size) continue;
+      if (!m?.size) continue;
       for (const [id, st] of [...m]) {
         const def = AILMENTS[id];
         if (def.dot) {

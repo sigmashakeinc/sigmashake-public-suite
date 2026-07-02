@@ -637,17 +637,108 @@ button.small {
 .tab-panel[data-tab="abyss"].active {
   display: flex;
 }
+.abyss-shell {
+  flex: 1;
+  min-height: 420px;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.abyss-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  flex-shrink: 0;
+}
 .abyss-status-row {
   flex-shrink: 0;
   padding: 2px 2px 0;
 }
-.abyss-frame {
+.abyss-head .icon-btn {
+  width: 30px;
+  height: 30px;
+  flex: 0 0 30px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface-2);
+  color: var(--text);
+  cursor: pointer;
+  font-size: 17px;
+  line-height: 1;
+}
+.abyss-head .icon-btn:disabled {
+  opacity: 0.5;
+  cursor: progress;
+}
+.abyss-stage {
   flex: 1;
-  min-height: 420px;
+  min-height: 0;
+  min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(190px, 0.9fr);
+  gap: 8px;
+}
+#abyss-canvas {
+  display: block;
+  align-self: stretch;
+  min-height: 320px;
   width: 100%;
   border: 1px solid var(--border);
-  border-radius: 8px;
-  background: #0a0e14;
+  border-radius: 6px;
+  background: #0b1118;
+}
+.abyss-side {
+  min-height: 0;
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 8px;
+}
+.abyss-list {
+  min-height: 0;
+  max-height: 170px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.abyss-list-row {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 7px 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+}
+.abyss-list-main {
+  color: var(--text);
+  font-size: 12px;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+.abyss-list-meta {
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+@media (max-width: 760px) {
+  .abyss-stage {
+    grid-template-columns: 1fr;
+    grid-template-rows: minmax(260px, 1fr) auto;
+  }
+  #abyss-canvas {
+    min-height: 260px;
+  }
+  .abyss-side {
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: auto;
+  }
 }
 .section-mini {
   font-size: 10px;

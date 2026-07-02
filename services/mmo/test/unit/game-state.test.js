@@ -341,10 +341,11 @@ describe("supervisor.guard", () => {
 });
 
 describe("supervisor.superviseInterval", () => {
-  test("keeps firing after a thrown tick", async (t) => {
+  test("keeps firing after a thrown tick", (t) => {
     const origErr = console.error;
     t.after(() => (console.error = origErr));
     console.error = () => {};
+    t.mock.timers.enable({ apis: ["setInterval"] });
 
     let ticks = 0;
     const stop = superviseInterval(
@@ -355,9 +356,9 @@ describe("supervisor.superviseInterval", () => {
       },
       10,
     );
-    await new Promise((r) => setTimeout(r, 60));
+    t.mock.timers.tick(30);
     stop();
-    assert.ok(ticks >= 3, `expected at least 3 ticks despite throw, got ${ticks}`);
+    assert.equal(ticks, 3, `expected 3 ticks despite throw, got ${ticks}`);
   });
 });
 
