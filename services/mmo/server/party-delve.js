@@ -27,7 +27,7 @@ function seedOf(str) {
 // Run one delve. Returns { ok, error? } or { ok:true, outcome, rounds, tile, party,
 // enemies, log, loot, level }. Mutates: character.run.inventory (player loot) +
 // party.lastDelve/status. The caller persists (putPlayer + putWorldState).
-export function runPartyDelve({ world, store, token, character, bossDrops = null }) {
+export function runPartyDelve({ world, store, token, character }) {
   const s = world?.sigmacraft;
   if (!s?.map) return { ok: false, error: "no overworld" };
   const tileId = s.actorPlaces?.[token] || s.map.townTileId;
@@ -79,7 +79,6 @@ export function runPartyDelve({ world, store, token, character, bossDrops = null
     level,
     depth,
     seed,
-    bossDrops,
   });
 
   // Attach the PLAYER's drops to their inventory (bounded). NPC drops are flavor in

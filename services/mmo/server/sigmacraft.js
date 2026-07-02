@@ -1,7 +1,7 @@
 // Sigmacraft authoritative lane. Runs as a FAST sub-advancer (every base tick,
 // ~3s) under the single supervised world tick — never its own timer. It resolves
-// bounded, already-validated intents and emits world events. No Gemma, no
-// network, no blocking IO here (integrate-this §"three-second tick budget").
+// bounded, already-validated intents and emits world events. No network, no
+// blocking IO here (integrate-this §"three-second tick budget").
 //
 // Validation happens at the trust boundary (server/validate.js + the enqueue
 // path) so this resolver can trust intent SHAPE; it still re-checks that target

@@ -1,9 +1,8 @@
 // SIGMA ABYSS — demo P4: dungeon enemies (party-scaled) + loot distribution.
-// Reuses makeEnemy/rollDrop/boss-drop forge. Run: node --test test/unit/party-dungeon.test.js
+// Reuses makeEnemy/rollDrop/forgeRaidDrop. Run: node --test test/unit/party-dungeon.test.js
 
 import assert from "node:assert/strict";
 import { describe, test } from "node:test";
-import { createBossDropForge } from "../../server/cerebras-boss-drops.js";
 import { buildNpcCombatant, buildPlayerCombatant } from "../../server/party-build.js";
 import { buildDungeonEnemies, rollPartyLoot } from "../../server/party-dungeon.js";
 import { resolvePartyEncounter } from "../../shared/party-combat.js";
@@ -40,8 +39,6 @@ describe("buildDungeonEnemies — deterministic + party-scaled", () => {
 });
 
 describe("rollPartyLoot", () => {
-  const bossDrops = createBossDropForge({ env: {} }); // live OFF → deterministic forgeRaidDrop
-
   test("victory drops one item per kill, attributed to the killer; defeat drops nothing", () => {
     const party = [
       buildPlayerCombatant({
@@ -74,7 +71,6 @@ describe("rollPartyLoot", () => {
       level: 8,
       depth: 2,
       seed: 11,
-      bossDrops,
     });
     assert.equal(loot.drops.length, 2, "one drop per kill");
     assert.ok(loot.drops.every((d) => d.memberId === party[0].id && d.item));
@@ -86,7 +82,6 @@ describe("rollPartyLoot", () => {
       level: 8,
       depth: 2,
       seed: 11,
-      bossDrops,
     });
     assert.equal(lost.drops.length, 0, "no loot on defeat");
   });
@@ -111,7 +106,6 @@ describe("rollPartyLoot", () => {
       level: 12,
       depth: 4,
       seed: 3,
-      bossDrops,
     });
     assert.equal(loot.drops.length, 1);
     assert.equal(loot.drops[0].fromBoss, true);
@@ -143,7 +137,6 @@ describe("end-to-end: build → resolve → loot", () => {
       level,
       depth,
       seed: 4242,
-      bossDrops: createBossDropForge({ env: {} }),
     });
     if (result.outcome === "victory")
       assert.equal(loot.drops.length, result.kills.length, "loot per kill on victory");

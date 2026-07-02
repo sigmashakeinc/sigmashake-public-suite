@@ -9,7 +9,7 @@ import assert from "node:assert/strict";
 import { describe, test } from "node:test";
 
 import { advance } from "../../server/sigmacraft.js";
-import { attachDirector, makeDirectorFallbackProposal } from "../../server/sigmacraft-director.js";
+import { attachDirector, makeDirectorProposal } from "../../server/sigmacraft-director.js";
 import { vDirectorProposals } from "../../server/validate.js";
 import { freshWorld } from "../../server/world-tick.js";
 import { DIRECTOR_KINDS, MAX_DIRECTOR_PROPOSALS_PER_CYCLE } from "../../shared/sigmacraft.js";
@@ -33,8 +33,8 @@ const feedStore = () => {
 describe("Director fallback proposal (deterministic, bounded)", () => {
   test("is a valid, deterministic director proposal for a given world", () => {
     const w = freshWorld();
-    const a = makeDirectorFallbackProposal(w);
-    const b = makeDirectorFallbackProposal(w);
+    const a = makeDirectorProposal(w);
+    const b = makeDirectorProposal(w);
     assert.ok(a && DIRECTOR_KINDS.includes(a.kind), "a known director kind");
     assert.deepEqual(a, b, "same world → identical proposal (deterministic)");
     // A default-objective world should open with a quest beat.

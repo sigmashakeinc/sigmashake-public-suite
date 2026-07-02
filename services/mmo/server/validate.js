@@ -220,8 +220,8 @@ export function vSigmacraftIntent(x) {
   return { kind, nonce };
 }
 
-// Gemma NPC proposal (integrate-this PR7) — the trust boundary for off-tick model
-// output. vArr DROPS malformed proposals rather than rejecting the batch; vEnum
+// NPC proposal (PR7) — the trust boundary for off-tick planner output.
+// vArr DROPS malformed proposals rather than rejecting the batch; vEnum
 // hard-constrains npcId + move targets to known sets; vStr scrubs control/zero-
 // width chars and caps length so nothing unbounded reaches the feed.
 export function vNpcMemory(x) {
@@ -275,7 +275,7 @@ export function vNpcProposal(x) {
     dialogueLine: vStr(o.dialogueLine, NPC_DIALOGUE_MAX, ""),
     agenda: vNpcAgenda(o.agenda), // high-level plan; tick cascades it into primitives
     memoryPatch: vNpcMemory(o.memoryPatch),
-    source: vEnum(o.source, ["fallback", "gemma"], "fallback"),
+    source: vEnum(o.source, ["rules"], "rules"),
   };
 }
 
@@ -297,7 +297,7 @@ export function vDirectorProposal(x) {
     id: vStr(o.id, DIRECTOR_ID_MAX, ""),
     title: vStr(o.title, DIRECTOR_TITLE_MAX, ""),
     text: vStr(o.text, DIRECTOR_TEXT_MAX, ""),
-    source: vEnum(o.source, ["fallback", "gemma"], "fallback"),
+    source: vEnum(o.source, ["rules"], "rules"),
   };
   if (o.targetTileId !== undefined && o.targetTileId !== null && o.targetTileId !== "") {
     proposal.targetTileId = vTileId(o.targetTileId); // shape only; existence re-checked at apply

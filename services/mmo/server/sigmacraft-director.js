@@ -1,16 +1,15 @@
-// Sigmacraft Director / game-master lane (integrate-this PR9). ONE world-level
-// brain that watches world pressure and proposes BOUNDED public beats — quest
-// beats, rumors, danger pulses, summaries — off the 3s tick critical path, in its
-// own supervised loop (NEVER its own world timer). It owns no authority: proposals
-// are validated at the trust boundary (server/validate.js: vDirectorProposals) and
-// only ever set narrative text + (for quest_beat) the PUBLIC objective. The tick
-// (server/sigmacraft.js advance) translates accepted proposals into events; loot,
-// XP, death, and market stay entirely outside the Director.
+// Sigmacraft Director / game-master lane. ONE world-level brain that watches world
+// pressure and proposes BOUNDED public beats — quest beats, rumors, danger pulses,
+// summaries — off the 3s tick critical path, in its own supervised loop (NEVER its
+// own world timer). It owns no authority: proposals are validated at the trust
+// boundary (server/validate.js: vDirectorProposals) and only ever set narrative
+// text + (for quest_beat) the PUBLIC objective. The tick (server/sigmacraft.js
+// advance) translates accepted proposals into events; loot, XP, death, and market
+// stay entirely outside the Director.
 //
-// Determinism: the deterministic fallback is the DEFAULT and uses the SAME pure
-// FNV selection (choose/stableIndex from shared/sigmacraft.js) as the generator, so
-// it's reproducible and socket-free in tests. Live Gemma is env-gated (DIRECTOR_LIVE
-// =1 && GEMMA_URL) and DEFERRED (callGemma throws) — see PR-D wiring.
+// Determinism: beats come from curated tables keyed by world pressure + tick, using
+// the SAME pure FNV selection (choose/stableIndex from shared/sigmacraft.js) as the
+// generator, so the Director is reproducible and socket-free in tests.
 //
 // Quiescence: Director output is ambient + regenerable (the objective re-proposes
 // on restart), so it lives IN-MEMORY ONLY. propose() never putWorldState's, and the
@@ -20,11 +19,9 @@
 import {
   choose,
   DIRECTOR_BEAT_COOLDOWN_TICKS,
-  DIRECTOR_KINDS,
   MAX_DIRECTOR_QUEUE,
   stableIndex,
 } from "../shared/sigmacraft.js";
-import { createLlmClient } from "./llm.js";
 import { vDirectorProposals } from "./validate.js";
 
 // Curated beat tables. `{place}` is filled with a deterministically chosen tile
@@ -80,8 +77,8 @@ function highDangerTiles(map) {
   return ranked.length ? ranked : tiles;
 }
 
-// Deterministic fallback proposal from world pressure + tick. Pure given the world.
-export function makeDirectorFallbackProposal(world) {
+// Deterministic beat proposal from world pressure + tick. Pure given the world.
+export function makeDirectorProposal(world) {
   const s = world?.sigmacraft;
   if (!s?.map) return null;
   const seed = `${s.realmId || "sigmacraft"}:director:${s.tick || 0}`;
@@ -105,7 +102,7 @@ export function makeDirectorFallbackProposal(world) {
       title: beat.title,
       text: beat.text.replace("{place}", placeName),
       targetTileId,
-      source: "fallback",
+      source: "rules",
     };
   }
   const lane = choose(["rumor", "danger", "summary"], `${seed}:lane`);
@@ -117,55 +114,8 @@ export function makeDirectorFallbackProposal(world) {
     title: "",
     text,
     targetTileId: lane === "summary" ? undefined : targetTileId,
-    source: "fallback",
+    source: "rules",
   };
-}
-
-// Live Gemma hook (Phase D). Reached only when DIRECTOR_LIVE=1 AND the shared
-// Cerebras seam is available; default OFF ⇒ never invoked, so tests stay
-// socket-free. The seam adds the timeout + breaker. Output is mapped to the SAME
-// bounded proposal shape and still passes vDirectorProposals, so a malformed beat
-// is dropped (→ fallback) and the Director still owns no authority.
-async function callGemma(world, llm) {
-  const s = world?.sigmacraft;
-  if (!s?.map) return null;
-  const dangerTiles = highDangerTiles(s.map)
-    .slice(0, 5)
-    .map((t) => `${t.id} (${t.name}, danger ${t.danger})`)
-    .join(", ");
-  const system =
-    "You are the game-master of a fantasy realm. Reply ONLY with compact JSON: " +
-    '{"kind": "quest_beat"|"rumor"|"danger"|"summary", "title": string<=80, "text": string<=200, ' +
-    '"questId": string, "stageId": string, "targetTileId": string}. ' +
-    "questId/stageId only for quest_beat; targetTileId must be one of the listed tiles or omitted. " +
-    "You set narrative + the public objective ONLY — never loot, xp, death, or rewards. No prose, no markdown.";
-  const user =
-    `Realm ${s.realmId}, tick ${s.tick || 0}. Current objective: ${s.objective?.title}. ` +
-    `High-danger tiles: ${dangerTiles || "none"}. ` +
-    `Recent events: ${
-      (s.recentEvents || [])
-        .slice(-4)
-        .map((e) => e.text)
-        .join(" | ") || "none"
-    }. ` +
-    "Propose ONE bounded public beat that keeps the realm legible and tense.";
-  const reply = await llm.chat({ system, user, json: true, maxTokens: 300 });
-  const kind = DIRECTOR_KINDS.includes(reply?.kind) ? reply.kind : "rumor";
-  const proposal = {
-    kind,
-    id: `dir_${kind}_${s.tick || 0}`,
-    title: String(reply?.title || "").slice(0, 80),
-    text: String(reply?.text || "").slice(0, 200),
-    source: "gemma",
-  };
-  if (reply?.targetTileId && s.map.tiles[String(reply.targetTileId)]) {
-    proposal.targetTileId = String(reply.targetTileId);
-  }
-  if (kind === "quest_beat") {
-    proposal.questId = String(reply?.questId || "quest").slice(0, 40);
-    proposal.stageId = String(reply?.stageId || "stage").slice(0, 40);
-  }
-  return proposal;
 }
 
 function ensureDirectorState(s) {
@@ -175,9 +125,7 @@ function ensureDirectorState(s) {
   }
 }
 
-export function attachDirector({ store, env = process.env, llm = createLlmClient({ env }) } = {}) {
-  const live = env.DIRECTOR_LIVE === "1";
-
+export function attachDirector({ store } = {}) {
   async function propose() {
     const world = store.getWorldState();
     if (!world?.sigmacraft?.map) return false;
@@ -195,13 +143,7 @@ export function attachDirector({ store, env = process.env, llm = createLlmClient
       return false;
     }
 
-    let proposal = null;
-    try {
-      proposal =
-        live && llm.available() ? await callGemma(world, llm) : makeDirectorFallbackProposal(world);
-    } catch {
-      proposal = makeDirectorFallbackProposal(world); // hard fallback on any model failure
-    }
+    const proposal = makeDirectorProposal(world);
     if (!proposal) return false;
 
     const clean = vDirectorProposals([proposal])[0]; // trust boundary; drops if malformed
@@ -216,5 +158,5 @@ export function attachDirector({ store, env = process.env, llm = createLlmClient
     return true;
   }
 
-  return { propose, makeDirectorFallbackProposal };
+  return { propose, makeDirectorProposal };
 }

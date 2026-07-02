@@ -2,10 +2,10 @@
 
 Generated from public component mirrors.
 
-- mmo: https://github.com/sigmashakeinc/sigmashake-mmo @ d41ac00f011fdab408b2ac0ce60924b23998ff76
-  (mirror main 0e74b45 — PR #1 merged — plus the style-only lint/format
-  follow-up sigmashake-mmo#2; branch:
-  https://github.com/blackfirebitcoin/sigmashake-mmo/tree/lint-biome-clean)
+- mmo: https://github.com/sigmashakeinc/sigmashake-mmo @ 315f9a8a24736b6bdd7a794820408c2e9c704e01
+  (mirror main 0e74b45 — PR #1 merged — plus the lint/format
+  follow-up sigmashake-mmo#2 and the LLM-removal sigmashake-mmo#3; branch:
+  https://github.com/blackfirebitcoin/sigmashake-mmo/tree/strip-llm)
 - abyss: https://github.com/sigmashakeinc/sigmashake-abyss @ 23b8fb5dddb1cf916a87f07acdbb89f3efa5e9f2
 - vcs: https://github.com/sigmashakeinc/sigmashake-vcs @ 31dd9812d81c83e5e66ff0d50b97c25d9ec16ed0
 

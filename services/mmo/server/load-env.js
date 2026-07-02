@@ -1,8 +1,7 @@
 // Boot-time secret loader. Reads KEY=VALUE lines from ~/.sigmashake/mmo.env (the
 // same out-of-repo file the CLI/MCP already use for MMO_HMAC_KEY) and injects any
-// key NOT already set in the environment. This lets Phase D run live "out of the
-// box" — the operator drops CEREBRAS_API_KEY / CEREBRAS_MODEL / *_LIVE flags into
-// that file once and every process picks them up — WITHOUT putting a secret in any
+// key NOT already set in the environment — the operator drops secrets into that
+// file once and every process picks them up, WITHOUT putting a secret in any
 // tracked source file (the public mirror stays clean; gitleaks stays green).
 //
 // Real env vars always win, so CI / prod / `FOO=bar node ...` overrides the file.

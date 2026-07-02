@@ -4,7 +4,6 @@
 
 import assert from "node:assert/strict";
 import { describe, test } from "node:test";
-import { createBossDropForge } from "../../server/cerebras-boss-drops.js";
 import { ensureDemoRun } from "../../server/party-build.js";
 import { runPartyDelve } from "../../server/party-delve.js";
 import { advance, enqueueSigmacraftIntent } from "../../server/sigmacraft.js";
@@ -18,7 +17,6 @@ const playtest = (seed) => {
   c.isPlaytest = true;
   return c;
 };
-const boss = () => createBossDropForge({ env: {} });
 
 describe("trust boundary (review fixes)", () => {
   test("ensureDemoRun NEVER touches a non-playtest (real) account's run", () => {
@@ -48,7 +46,7 @@ describe("runPartyDelve", () => {
     const w = freshWorld();
     const token = "sig_a";
     w.sigmacraft.actorPlaces[token] = w.sigmacraft.map.townTileId;
-    const out = runPartyDelve({ world: w, store, token, character: playtest(1), bossDrops: null });
+    const out = runPartyDelve({ world: w, store, token, character: playtest(1) });
     assert.equal(out.ok, false);
     assert.match(out.error, /dungeon/);
   });
@@ -58,7 +56,7 @@ describe("runPartyDelve", () => {
     const token = "sig_b";
     w.sigmacraft.actorPlaces[token] = dungeonTile(w).id;
     const character = playtest(2);
-    const out = runPartyDelve({ world: w, store, token, character, bossDrops: boss() });
+    const out = runPartyDelve({ world: w, store, token, character });
     assert.equal(out.ok, true);
     assert.ok(["victory", "defeat", "timeout"].includes(out.outcome));
     assert.ok(Array.isArray(out.log) && out.party.length === 1);
@@ -72,13 +70,13 @@ describe("runPartyDelve", () => {
     const character = playtest(7);
     ensureDemoRun(character);
     character.run.hp = 1; // walk in nearly dead → a wipe is very likely
-    const out = runPartyDelve({ world: w, store, token, character, bossDrops: boss() });
+    const out = runPartyDelve({ world: w, store, token, character });
     assert.equal(out.ok, true);
     // hp was carried back from the fight (not silently reset to maxHp)
     assert.ok(Number.isFinite(character.run.hp)); // hp stayed a real number; real check below
     if (out.outcome === "defeat") {
       assert.equal(character.run.alive, false, "a wipe is permadeath");
-      const again = runPartyDelve({ world: w, store, token, character, bossDrops: boss() });
+      const again = runPartyDelve({ world: w, store, token, character });
       assert.equal(again.ok, false, "a fallen hero cannot delve");
     }
   });
@@ -96,7 +94,6 @@ describe("runPartyDelve", () => {
       store,
       token,
       character: playtest(11),
-      bossDrops: boss(),
     });
     assert.equal(out.ok, false);
     assert.match(out.error, /respawn|freshly cleared/);
@@ -117,7 +114,6 @@ describe("runPartyDelve", () => {
       store,
       token,
       character: playtest(5),
-      bossDrops: boss(),
     });
     assert.equal(out.ok, false, "cooldown still blocks after disband");
     assert.match(out.error, /respawn|freshly cleared/);
@@ -155,7 +151,6 @@ describe("runPartyDelve", () => {
       store,
       token,
       character: playtest(3),
-      bossDrops: boss(),
     });
     assert.equal(out.ok, true);
     assert.equal(out.party.length, 3);

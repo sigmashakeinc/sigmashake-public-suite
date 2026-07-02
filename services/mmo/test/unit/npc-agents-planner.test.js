@@ -1,11 +1,11 @@
-// SIGMA ABYSS — Gemma NPC planner (PR7) over the 200-agent overworld.
+// SIGMA ABYSS — rules-based NPC planner (PR7) over the 200-agent overworld.
 // Run: node --test test/unit/npc-agents-planner.test.js
-// NO live LLM: NPC_PLANNER_LIVE unset ⇒ deterministic fallback only.
+// Deterministic rules-based planner — no network, reproducible.
 
 import assert from "node:assert/strict";
 import { describe, test } from "node:test";
 
-import { attachNpcPlanner, makeNpcFallbackProposal } from "../../server/sigmacraft-npc-agents.js";
+import { attachNpcPlanner, makeNpcProposal } from "../../server/sigmacraft-npc-agents.js";
 import { vNpcProposal } from "../../server/validate.js";
 import { freshWorld } from "../../server/world-tick.js";
 
@@ -27,7 +27,7 @@ describe("deterministic fallback agenda", () => {
   test("every overworld NPC's fallback agenda survives the validator + is grounded", () => {
     const w = freshWorld();
     for (const id of Object.keys(w.sigmacraft.overworldNpcs)) {
-      const p = makeNpcFallbackProposal(id, w);
+      const p = makeNpcProposal(id, w);
       const clean = vNpcProposal(p);
       assert.equal(clean.npcId, id);
       assert.ok(Array.isArray(clean.agenda) && clean.agenda.length > 0, "has a non-empty agenda");
@@ -46,7 +46,7 @@ describe("deterministic fallback agenda", () => {
   test("is deterministic for the same (npc, tick, tile)", () => {
     const w = freshWorld();
     const id = anyNpcId(w);
-    assert.deepEqual(makeNpcFallbackProposal(id, w), makeNpcFallbackProposal(id, w));
+    assert.deepEqual(makeNpcProposal(id, w), makeNpcProposal(id, w));
   });
 });
 

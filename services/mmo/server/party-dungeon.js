@@ -1,11 +1,11 @@
 // Dungeon encounter + loot for a party delve (demo P4). Reuses the real systems:
 // makeEnemy (the tuned roster), makeRng (seeded), rollDrop (the loot table), and the
-// Gemma-capable boss-drop forge. Enemies are adapted into the party-combat resolver's
+// deterministic raid-boss forge. Enemies are adapted into the party-combat resolver's
 // combatant shape. Server-side (uses makeRng/Date-stamped item ids); the resolver
 // itself stays pure.
 
 import { makeEnemy } from "../shared/enemies.js";
-import { rollDrop } from "../shared/loot.js";
+import { forgeRaidDrop, rollDrop } from "../shared/loot.js";
 import { makeRng } from "../shared/rng.js";
 
 const NORMALS = [
@@ -18,8 +18,7 @@ const NORMALS = [
   "abyss_crawler",
   "corrupted_knight",
 ];
-// Boss ids are RAID_BOSS_DROPS keys → a boss kill yields a REAL raid drop (+ optional
-// Gemma enrichment via the boss-drop forge).
+// Boss ids are RAID_BOSS_DROPS keys → a boss kill yields a REAL raid drop.
 const BOSSES = ["goblin_king", "hollow_druid", "chrome_centurion", "catacomb_tyrant"];
 const ENEMY_SHEET_EXTRA = { critChance: 0.05, critMult: 1.5, dodge: 0.03, overload: 0 };
 
@@ -67,18 +66,10 @@ export function buildDungeonEnemies(tile, partySize = 1, seed = 1) {
 }
 
 // After a VICTORY, roll one drop per killed enemy and assign it to the member that
-// landed the kill. Boss kills route through bossDrops.forgeOrCached (sync, off the
-// resolution path; warms Gemma enrichment for next time). `builtEnemies` is the
-// buildDungeonEnemies output (carries bossId, which the resolver result drops).
-export function rollPartyLoot({
-  result,
-  builtEnemies,
-  party,
-  level,
-  depth,
-  seed,
-  bossDrops = null,
-}) {
+// landed the kill. Boss kills forge the boss-specific drop (deterministic, sync).
+// `builtEnemies` is the buildDungeonEnemies output (carries bossId, which the
+// resolver result drops).
+export function rollPartyLoot({ result, builtEnemies, party, level, depth, seed }) {
   if (!result || result.outcome !== "victory") return { drops: [] };
   const rng = makeRng(((seed >>> 0) ^ 0x9e3779b9) >>> 0);
   const memberById = new Map(party.map((c) => [c.id, c]));
@@ -89,10 +80,9 @@ export function rollPartyLoot({
     if (!member) continue;
     const bossId = bossById.get(kill.enemyId) || null;
     let item = null;
-    if (bossId && bossDrops) {
+    if (bossId) {
       try {
-        item = bossDrops.forgeOrCached(bossId, level);
-        bossDrops.warm?.(bossId, level, { killerLevel: level });
+        item = forgeRaidDrop(bossId, level);
       } catch {
         item = null; // forge threw → fall through to the normal drop, never hang the request
       }

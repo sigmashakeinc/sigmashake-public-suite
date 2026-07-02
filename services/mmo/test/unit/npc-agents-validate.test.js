@@ -21,7 +21,7 @@ const base = (over = {}) => ({
     { kind: "rest", targetTileId: "millbridge" },
   ],
   memoryPatch: { goals: [{ text: "g" }], recentIncidents: [], summaryPointer: "x" },
-  source: "fallback",
+  source: "rules",
   ...over,
 });
 
