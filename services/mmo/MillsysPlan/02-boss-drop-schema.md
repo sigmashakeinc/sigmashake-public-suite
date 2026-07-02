@@ -54,32 +54,32 @@ function clampAffixes(affixes, ilvl) {
 // 3. Validator — drops invalid affixes, clamps values, never throws
 export function validateBossDrop(drop) {
   const errors = [];
-  
+
   // baseType
   const base = ITEM_BASES[drop.baseType];
   if (!base) errors.push(`unknown baseType: ${drop.baseType}`);
-  
+
   // rarity
   if (!RARITIES.includes(drop.rarity)) errors.push(`invalid rarity: ${drop.rarity}`);
-  
+
   // ilvl
   const ilvl = Math.max(1, Math.min(99999, Math.trunc(drop.ilvl) || 1));
-  
+
   // affixes
   let affixes = Array.isArray(drop.affixes) ? drop.affixes : [];
   affixes = affixes.slice(0, 6);
   const validStats = new Set(AFFIX_POOL.map(a => a.stat));
   affixes = affixes.filter(a => validStats.has(a.stat) && ["prefix", "suffix"].includes(a.kind));
   affixes = clampAffixes(affixes, ilvl);
-  
+
   // effect
   let effect = drop.effect;
   if (effect && !EFFECT_IDS.includes(effect)) effect = null;
-  
+
   // name/flavor
   const name = String(drop.name || "").slice(0, 60);
   const flavor = drop.flavor ? String(drop.flavor).slice(0, 120) : null;
-  
+
   const cleaned = {
     baseType: base ? drop.baseType : "vaal_axe",
     rarity: RARITIES.includes(drop.rarity) ? drop.rarity : "mythic",
@@ -90,7 +90,7 @@ export function validateBossDrop(drop) {
     flavor,
     source: drop.source || "deterministic"
   };
-  
+
   return { ok: errors.length === 0, drop: cleaned, errors };
 }
 
@@ -100,7 +100,7 @@ export function fallbackDrop(bossId, killerLevel = 1) {
   const { RAID_BOSS_DROPS, forgeRaidDrop } = require("./loot.js");
   const item = forgeRaidDrop(bossId, killerLevel);
   if (!item) return null;
-  
+
   return {
     baseType: item.base.toLowerCase().replace(/ /g, "_"),
     rarity: item.rarity,

@@ -22,6 +22,7 @@ const ACCOUNTS_SIGNIN = "https://accounts.sigmashake.com/auth/twitch";
 const ACCOUNTS_SIGNIN_KICK = "https://accounts.sigmashake.com/auth/kick";
 const ACCOUNTS_SIGNIN_GOOGLE = "https://accounts.sigmashake.com/auth/google";
 const ACCOUNTS_SIGNOUT = "https://accounts.sigmashake.com/auth/logout";
+const ABYSS_API_BASE = "https://sigmashake-abyss.sigmashake.workers.dev";
 
 const HAIR_STYLES = [
   "short",
@@ -126,6 +127,9 @@ const state = {
   combatEquipping: false, // true while a /combat-equip POST is in flight (locks the bag)
   weaponCatalog: null, // {ok, tunables, maxSlots, weapons:WeaponDef[], evolutions:Evolution[]} — static; cached after first load
   combatWeapons: null, // {ok, weapons:string[], activeWeapon, available, maxSlots, evolutions, fainted, lostWeapon} | {error}
+  abyss: null, // {snapshot, world, fallback}
+  abyssLoaded: false,
+  abyssRefreshBound: false,
 };
 
 // Synthetic pet objects used to drive composeAvatar for each canvas.
@@ -198,11 +202,246 @@ function activateTab(name) {
 }
 
 function loadAbyssTab() {
-  const frame = $("abyss-frame");
-  if (!frame || frame.getAttribute("src")) return;
-  show("abyss-loading");
-  frame.addEventListener("load", () => hide("abyss-loading"), { once: true });
-  frame.setAttribute("src", frame.dataset.src || "http://127.0.0.1:7777/");
+  const view = $("abyss-view");
+  if (!view) return;
+  if (!state.abyssRefreshBound) {
+    $("abyss-refresh")?.addEventListener("click", () => refreshAbyss({ force: true }));
+    state.abyssRefreshBound = true;
+  }
+  if (state.abyssLoaded || view.dataset.loaded === "true") return;
+  state.abyssLoaded = true;
+  view.dataset.loaded = "true";
+  refreshAbyss({ force: false });
+}
+
+async function refreshAbyss({ force } = { force: false }) {
+  setText("abyss-status", force ? "Refreshing public realm..." : "Loading public realm...");
+  const refresh = $("abyss-refresh");
+  if (refresh) refresh.disabled = true;
+  try {
+    const [snapshot, world] = await Promise.all([
+      fetchAbyssJson("/api/realm/snapshot"),
+      fetchAbyssJson("/api/agent/world"),
+    ]);
+    state.abyss = { snapshot, world, fallback: false };
+    setText("abyss-status", `${Number(snapshot.agents || 0)} agents · ${Number(snapshot.openHits || 0)} open HITs`);
+  } catch (_err) {
+    state.abyss = buildAbyssFallback();
+    setText("abyss-status", "Public realm unreachable — showing cached battle formation.");
+  } finally {
+    if (refresh) refresh.disabled = false;
+    renderAbyss();
+  }
+}
+
+async function fetchAbyssJson(path) {
+  const res = await fetch(`${ABYSS_API_BASE}${path}`, { headers: { accept: "application/json" } });
+  if (!res.ok) throw new Error(`abyss_${res.status}`);
+  return res.json();
+}
+
+function buildAbyssFallback() {
+  return {
+    fallback: true,
+    snapshot: {
+      ok: true,
+      agents: 4,
+      openHits: 0,
+      leaderboard: [
+        { name: "edgebot", level: 1, gold: 25, taskCoins: 1, reputation: 1, kills: 0 },
+        { name: "murderbot", level: 1, gold: 12, taskCoins: 0, reputation: 0, kills: 3 },
+        { name: "phase2smoke", level: 1, gold: 0, taskCoins: 0, reputation: 0, kills: 0 },
+      ],
+      feed: [
+        { kind: "join", text: "edgebot entered the abyss" },
+        { kind: "join", text: "murderbot entered the abyss" },
+        { kind: "oracle", text: "oracle bazaar awaiting the next hit" },
+      ],
+    },
+    world: {
+      width: 11,
+      height: 11,
+      tiles: [
+        { x: 5, y: 5, content: { type: "town", code: "spawn" } },
+        { x: 5, y: 4, content: { type: "oracle", code: "oracle" } },
+        { x: 4, y: 5, content: { type: "bank", code: "bank" } },
+        { x: 6, y: 5, content: { type: "workshop", code: "forge" } },
+        { x: 5, y: 2, content: { type: "monster", code: "chrome_rat" } },
+        { x: 2, y: 4, content: { type: "monster", code: "void_slime" } },
+        { x: 9, y: 9, content: { type: "monster", code: "hollow_knight" } },
+        { x: 3, y: 2, content: { type: "resource", code: "chrome_vein" } },
+        { x: 7, y: 7, content: { type: "resource", code: "void_timber" } },
+      ],
+      monsters: {
+        chrome_rat: { name: "Chrome Rat", level: 1 },
+        void_slime: { name: "Void Slime", level: 3 },
+        hollow_knight: { name: "Hollow Knight", level: 10 },
+      },
+    },
+  };
+}
+
+function renderAbyss() {
+  const data = state.abyss || buildAbyssFallback();
+  renderAbyssList("abyss-leaderboard", normalizeAbyssLeaders(data.snapshot?.leaderboard));
+  renderAbyssList("abyss-feed", normalizeAbyssFeed(data.snapshot?.feed));
+  renderAbyssCanvas(data);
+}
+
+function normalizeAbyssLeaders(leaders) {
+  const list = Array.isArray(leaders) ? leaders : [];
+  if (list.length === 0) return [{ main: "No agents yet", meta: "The realm is waiting for combatants." }];
+  return list.slice(0, 6).map((agent, i) => ({
+    main: `${i + 1}. ${agent?.name || "agent"}`,
+    meta: `Lv ${Number(agent?.level || 1)} · gold ${Number(agent?.gold || 0)} · rep ${Number(agent?.reputation || 0)}`,
+  }));
+}
+
+function normalizeAbyssFeed(feed) {
+  const list = Array.isArray(feed) ? feed : [];
+  if (list.length === 0) return [{ main: "No realm events yet", meta: "The abyss is quiet." }];
+  return list.slice(0, 7).map((event) => ({
+    main: event?.text || "realm event",
+    meta: event?.kind || "event",
+  }));
+}
+
+function renderAbyssList(id, rows) {
+  const el = $(id);
+  if (!el) return;
+  el.replaceChildren();
+  for (const row of rows) {
+    const item = document.createElement("div");
+    item.className = "abyss-list-row";
+    const main = document.createElement("span");
+    main.className = "abyss-list-main";
+    main.textContent = row.main;
+    const meta = document.createElement("span");
+    meta.className = "abyss-list-meta";
+    meta.textContent = row.meta;
+    item.append(main, meta);
+    el.appendChild(item);
+  }
+}
+
+function renderAbyssCanvas(data) {
+  const canvas = $("abyss-canvas");
+  const ctx = canvas?.getContext?.("2d");
+  if (!canvas || !ctx) return;
+  const world = data.world || {};
+  const width = Number(world.width || 11);
+  const height = Number(world.height || 11);
+  const tiles = Array.isArray(world.tiles) ? world.tiles : [];
+  const tileByCoord = new Map(tiles.map((tile) => [`${tile.x},${tile.y}`, tile.content]));
+  const dpr = Math.max(1, Math.floor(window.devicePixelRatio || 1));
+  const cssWidth = canvas.clientWidth || 720;
+  const cssHeight = canvas.clientHeight || 360;
+  if (canvas.width !== cssWidth * dpr || canvas.height !== cssHeight * dpr) {
+    canvas.width = cssWidth * dpr;
+    canvas.height = cssHeight * dpr;
+  }
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, cssWidth, cssHeight);
+  const cell = Math.max(16, Math.floor(Math.min((cssWidth - 220) / width, (cssHeight - 28) / height)));
+  const originX = 14;
+  const originY = 14;
+
+  ctx.fillStyle = "#0b1118";
+  ctx.fillRect(0, 0, cssWidth, cssHeight);
+  ctx.strokeStyle = "#2d3748";
+  ctx.strokeRect(0.5, 0.5, cssWidth - 1, cssHeight - 1);
+
+  for (let y = 0; y < height; y += 1) {
+    for (let x = 0; x < width; x += 1) {
+      const content = tileByCoord.get(`${x},${y}`);
+      const px = originX + x * cell;
+      const py = originY + y * cell;
+      ctx.fillStyle = abyssTileColor(content?.type);
+      ctx.fillRect(px, py, cell - 2, cell - 2);
+      ctx.strokeStyle = "rgba(255,255,255,0.06)";
+      ctx.strokeRect(px + 0.5, py + 0.5, cell - 3, cell - 3);
+      const glyph = abyssTileGlyph(content?.type);
+      if (glyph) {
+        ctx.fillStyle = "#f4f7fb";
+        ctx.font = `${Math.max(10, Math.floor(cell * 0.42))}px ui-monospace, monospace`;
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText(glyph, px + cell / 2 - 1, py + cell / 2 - 1);
+      }
+    }
+  }
+
+  const leaders = Array.isArray(data.snapshot?.leaderboard) ? data.snapshot.leaderboard.slice(0, 4) : [];
+  leaders.forEach((agent, i) => drawAbyssAgent(ctx, agent, i, originX, originY, cell, width, height));
+  drawAbyssHud(ctx, data, cssWidth, cssHeight);
+}
+
+function abyssTileColor(type) {
+  return {
+    town: "#16314a",
+    oracle: "#322052",
+    monster: "#4a1f29",
+    resource: "#183f2d",
+    workshop: "#40361c",
+    bank: "#173645",
+  }[type] || "#111827";
+}
+
+function abyssTileGlyph(type) {
+  return {
+    town: "T",
+    oracle: "O",
+    monster: "M",
+    resource: "R",
+    workshop: "W",
+    bank: "B",
+  }[type] || "";
+}
+
+function drawAbyssAgent(ctx, agent, i, originX, originY, cell, width, height) {
+  const spots = [
+    [5, 5],
+    [5, 2],
+    [2, 4],
+    [8, 6],
+  ];
+  const [x, y] = spots[i] || [Math.min(width - 1, i + 1), Math.min(height - 1, i + 1)];
+  const px = originX + x * cell + cell / 2;
+  const py = originY + y * cell + cell / 2;
+  ctx.fillStyle = ["#7dd3fc", "#fbbf24", "#c084fc", "#34d399"][i % 4];
+  ctx.beginPath();
+  ctx.arc(px, py, Math.max(5, cell * 0.2), 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = "#07111b";
+  ctx.font = `${Math.max(9, Math.floor(cell * 0.28))}px ui-monospace, monospace`;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText(String(agent?.name || "A").slice(0, 1).toUpperCase(), px, py + 0.5);
+}
+
+function drawAbyssHud(ctx, data, width, height) {
+  const x = Math.max(420, width - 194);
+  ctx.fillStyle = "rgba(8, 13, 20, 0.86)";
+  ctx.fillRect(x, 16, width - x - 14, height - 32);
+  ctx.strokeStyle = "#2d3748";
+  ctx.strokeRect(x + 0.5, 16.5, width - x - 15, height - 33);
+  ctx.textAlign = "left";
+  ctx.textBaseline = "top";
+  ctx.fillStyle = "#bf94ff";
+  ctx.font = "700 13px ui-monospace, monospace";
+  ctx.fillText("AUTO BATTLE", x + 14, 30);
+  ctx.fillStyle = "#efeff1";
+  ctx.font = "12px ui-monospace, monospace";
+  ctx.fillText(`${Number(data.snapshot?.agents || 0)} agents online`, x + 14, 58);
+  ctx.fillText(`${Number(data.snapshot?.openHits || 0)} oracle hits open`, x + 14, 78);
+  ctx.fillStyle = "#adadb8";
+  ctx.fillText(data.fallback ? "fallback formation" : "public edge realm", x + 14, 104);
+  ctx.fillStyle = "#ffc857";
+  ctx.fillText("T town  O oracle", x + 14, height - 84);
+  ctx.fillStyle = "#f87171";
+  ctx.fillText("M monster", x + 14, height - 64);
+  ctx.fillStyle = "#34d399";
+  ctx.fillText("R resource", x + 14, height - 44);
 }
 
 function wireSubTabs() {

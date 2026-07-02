@@ -49,7 +49,7 @@ Output ONLY valid JSON:
 export async function enrichBossDrop(deterministicDrop, context) {
   const cacheKey = buildCacheKey(context);
   const cached = enrichmentCache.get(cacheKey);
-  
+
   if (cached && Date.now() - cached.generatedAt < CACHE_TTL_MS) {
     cached.useCount++;
     return { ...cached.drop, source: "gemma", enriched: true, cached: true };
@@ -57,22 +57,22 @@ export async function enrichBossDrop(deterministicDrop, context) {
 
   try {
     const prompt = buildPrompt(context);
-    const raw = await chat([{ role: "user", content: prompt }], { 
-      temp: 0.8, 
-      maxTokens: 1500 
+    const raw = await chat([{ role: "user", content: prompt }], {
+      temp: 0.8,
+      maxTokens: 1500
     });
-    
+
     const validation = validateBossDrop(raw);
     if (!validation.ok) throw new Error(validation.errors.join(", "));
-    
+
     const drop = { ...validation.drop, source: "gemma" };
-    
+
     // Update cache
     if (enrichmentCache.size >= MAX_CACHE_SIZE) {
       evictOldest();
     }
     enrichmentCache.set(cacheKey, { drop, generatedAt: Date.now(), useCount: 1 });
-    
+
     return { ...drop, enriched: true };
   } catch (e) {
     // Hard fallback — deterministic drop unchanged
@@ -155,9 +155,9 @@ enrichBossDrop(baseDrop, {
 }).then(enriched => {
   if (enriched.enriched && enriched.source === "gemma") {
     swapDrop(lastHitCharacter, baseDrop.id, enriched);
-    store.pushFeed?.({ 
-      kind: "boss_enriched", 
-      detail: `${enriched.name} awakened with new power.` 
+    store.pushFeed?.({
+      kind: "boss_enriched",
+      detail: `${enriched.name} awakened with new power.`
     });
   }
 }).catch(() => {}); // Silent — base drop already awarded
@@ -168,10 +168,10 @@ enrichBossDrop(baseDrop, {
 function swapDrop(character, oldId, newDrop) {
   const inv = character.run?.inventory;
   if (!Array.isArray(inv)) return;
-  
+
   const idx = inv.findIndex(i => i.id === oldId);
   if (idx === -1) return; // Already moved/vaulted/sold
-  
+
   // Build full item from enriched schema
   const fullItem = buildItemFromSchema(newDrop, inv[idx]);
   inv[idx] = fullItem;

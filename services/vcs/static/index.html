@@ -322,18 +322,30 @@
           </div><!-- /#build-content -->
         </div><!-- /build tab-panel -->
 
-        <!-- ABYSS: streamer-local SIGMA ABYSS auto-battle canvas -->
+        <!-- ABYSS: public SIGMA ABYSS spectator realm -->
         <div class="tab-panel" data-tab="abyss" role="tabpanel" hidden>
-          <div id="abyss-loading" class="muted abyss-status-row">Loading SIGMA ABYSS...</div>
-          <iframe
-            id="abyss-frame"
-            class="abyss-frame"
-            title="SIGMA ABYSS auto battle"
-            data-src="http://127.0.0.1:7777/?embed=vcs"
-            allow="local-network-access"
-            loading="lazy"
-            referrerpolicy="no-referrer-when-downgrade"
-          ></iframe>
+          <div class="abyss-shell" id="abyss-view" data-loaded="false">
+            <div class="abyss-head">
+              <div>
+                <h2>SIGMA ABYSS</h2>
+                <div id="abyss-status" class="muted abyss-status-row">Loading public realm...</div>
+              </div>
+              <button id="abyss-refresh" class="icon-btn" type="button" title="Refresh Abyss" aria-label="Refresh Abyss">↻</button>
+            </div>
+            <div class="abyss-stage">
+              <canvas id="abyss-canvas" width="720" height="360" aria-label="SIGMA ABYSS auto battle spectator"></canvas>
+              <div class="abyss-side">
+                <div>
+                  <h3 class="section-mini">Leaderboard</h3>
+                  <div id="abyss-leaderboard" class="abyss-list"></div>
+                </div>
+                <div>
+                  <h3 class="section-mini">Realm Feed</h3>
+                  <div id="abyss-feed" class="abyss-list abyss-feed"></div>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
 
         <!-- SHOP: featured + browse-all -->

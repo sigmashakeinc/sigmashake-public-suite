@@ -87,6 +87,18 @@ function brainsRateKey(body = {}) {
 
 function brainsPrompt(body = {}) {
   const prompt = {
+    world: {
+      name: "VibeCodeSim OBS survival room",
+      model: "gemma-4-31b",
+      situation:
+        "A live on-stream crowd of autonomous characters is being raided by hostile enemies.",
+      rules: [
+        "Act like one distinct human-like character with your own mood, memory, and survival instinct.",
+        "Sleeping characters stay physically still until tagged awake by an awake character, one at a time.",
+        "During a raid, communicate fear, urgency, teamwork, retreat, assistance, and protection.",
+        "The overlay engine owns physical movement; return intent and emotion, not coordinates.",
+      ],
+    },
     viewer: {
       source: rpcSource(body),
       login: String(body.login ?? ""),
@@ -157,7 +169,7 @@ export async function proxyToBrains(
             {
               role: "system",
               content:
-                "You are the VCS brains tick mock for local integration tests. Return a compact JSON object.",
+                "You are the VCS brains tick mock for local integration tests. Behave like one Gemma4-31b VibeCodeSim character in the survival-room world. Return a compact JSON object.",
             },
             {
               role: "user",

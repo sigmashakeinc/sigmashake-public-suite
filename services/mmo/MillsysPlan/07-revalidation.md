@@ -17,21 +17,21 @@ import { RAID_BOSS_DROPS, forgeRaidDrop } from "../shared/loot.js";
 export function vBossDrop(item) {
   // Standard item validation first
   const validated = vItem(item);
-  
+
   // Only re-validate Gemma-sourced drops
   if (validated.source !== "gemma") return validated;
-  
+
   // Re-validate against boss drop schema
   const reval = validateBossDrop(validated);
   if (reval.ok) {
     return { ...reval.drop, source: "gemma", revalidated: true };
   }
-  
+
   // FAIL CLOSED: Revert to deterministic equivalent
   const bossId = validated.raidDrop || "goblin_king";
   const ilvl = validated.ilvl || 50;
   const fallback = forgeRaidDrop(bossId, Math.max(1, Math.round(ilvl / 1.5 - 8)));
-  
+
   if (fallback) {
     // Preserve identity fields
     return {
@@ -41,7 +41,7 @@ export function vBossDrop(item) {
       originalErrors: reval.errors
     };
   }
-  
+
   // Ultimate fallback
   return { ...validated, source: "deterministic", revalidationFailed: true };
 }
@@ -53,17 +53,17 @@ export function vBossDrop(item) {
 
 function vCharacter(character) {
   // ... existing validation ...
-  
+
   // Re-validate inventory items
   if (Array.isArray(character.run?.inventory)) {
     character.run.inventory = character.run.inventory.map(vBossDrop);
   }
-  
+
   // Re-validate vault items
   if (Array.isArray(character.vault)) {
     character.vault = character.vault.map(vBossDrop);
   }
-  
+
   // Re-validate gear
   if (character.run?.gear) {
     for (const slot of GEAR_SLOTS) {
@@ -72,7 +72,7 @@ function vCharacter(character) {
       }
     }
   }
-  
+
   return character;
 }
 ```

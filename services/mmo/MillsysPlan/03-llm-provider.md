@@ -45,7 +45,7 @@ const breaker = createCircuitBreaker({ failureThreshold: 5, resetMs: 60000 });
 function createSemaphore(max) {
   let current = 0;
   const queue = [];
-  
+
   return {
     withLock: async (fn) => {
       if (current < max) {
@@ -79,7 +79,7 @@ const TIMEOUT = Number(process.env.LLM_TIMEOUT_MS) || 15000;
 
 export async function chat(messages, options = {}) {
   if (breaker.isOpen()) throw new Error("LLM circuit open");
-  
+
   return semaphore.withLock(async () => {
     const res = await fetch(`${BASE_URL}/chat/completions`, {
       method: "POST",
@@ -96,13 +96,13 @@ export async function chat(messages, options = {}) {
       }),
       signal: AbortSignal.timeout(TIMEOUT)
     });
-    
+
     if (!res.ok) {
       const err = await res.text();
       breaker.recordFailure();
       throw new Error(`LLM ${res.status}: ${err}`);
     }
-    
+
     const data = await res.json();
     breaker.recordSuccess();
     return JSON.parse(data.choices[0].message.content);

@@ -17,28 +17,28 @@ import { vNpcProposal } from "./validate.js";
 async function callGemma(npcId, world, env) {
   const npc = NPCS[npcId];
   if (!npc) return makeNpcFallbackProposal(npcId, world);
-  
+
   const rec = world.npcs?.[npcId] || {
     zoneId: npc.homeZone,
     schedulePhase: "wandering",
     moodValue: 50,
     recentIncidents: []
   };
-  
+
   const playersHere = Object.entries(world.sigmacraft?.actorPlaces || {})
     .filter(([_, z]) => z === rec.zoneId).length;
-  
+
   const prompt = buildNpcPrompt(npc, rec, playersHere, world);
-  
+
   try {
-    const raw = await chat([{ role: "user", content: prompt }], { 
-      temp: 0.7, 
-      maxTokens: 600 
+    const raw = await chat([{ role: "user", content: prompt }], {
+      temp: 0.7,
+      maxTokens: 600
     });
-    
+
     const clean = vNpcProposal([raw])[0]; // Drops if invalid
     if (!clean) return makeNpcFallbackProposal(npcId, world);
-    
+
     return { ...clean, source: "gemma" };
   } catch (e) {
     return makeNpcFallbackProposal(npcId, world);
@@ -55,7 +55,7 @@ function buildNpcPrompt(npc, rec, playersHere, world) {
     .filter(n => n.zoneId === rec.zoneId)
     .map(n => NPCS[n.id]?.name || n.id)
     .join(", ");
-  
+
   return `
 You are ${npc.name} (${npc.role}, ${npc.factionId}).
 Personality: ${npc.traitIds?.join(", ") || "neutral"}

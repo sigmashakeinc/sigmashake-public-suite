@@ -40,7 +40,7 @@ if (baseDrop) {
 // 2. ENQUEUE ENRICHMENT (fire-and-forget, non-blocking)
 if (baseDrop && dropForKiller) {
   const zone = ZONE_BY_ID[raid.bossZone] || ZONE_BY_ID[raid.boss_id];
-  
+
   enrichBossDrop(baseDrop, {
     bossId: raid.boss_id,
     bossName: RAID_BOSS_DROPS[raid.boss_id]?.name || raid.boss_id,
@@ -55,14 +55,14 @@ if (baseDrop && dropForKiller) {
     if (enriched.enriched && enriched.source === "gemma") {
       // SWAP: remove baseDrop, place enriched
       swapDropForPlayer(rec.character, baseDrop.id, enriched);
-      
+
       // Feed notification
       store.pushFeed?.({
         kind: "boss_enriched",
         detail: `${enriched.name} awakened with new power.`,
         at: Date.now()
       });
-      
+
       // Broadcast to clients
       rt.broadcast?.({ t: "bossDropEnriched", bossId: raid.boss_id, item: enriched });
     }
@@ -84,14 +84,14 @@ function getRecentBossDrops(bossId, limit = 5) {
 function swapDropForPlayer(character, baseDropId, enriched) {
   const inv = character.run?.inventory;
   if (!Array.isArray(inv)) return;
-  
+
   const idx = inv.findIndex(i => i.id === baseDropId);
   if (idx >= 0) {
     // Replace in-place, preserving position
     inv[idx] = { ...enriched, id: baseDropId }; // keep original ID for tracking
     return;
   }
-  
+
   // If not in inventory (sold/vaulted), add enriched to vault
   if (!Array.isArray(character.vault)) character.vault = [];
   if (character.vault.length < (character.vaultCapacity || 20)) {
