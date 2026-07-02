@@ -141,6 +141,47 @@ export function putWorldState(w) {
   worldDirty = true;
 }
 
+// VCS account POINTERS (integrate-this PR3) live in the world.sigmacraft
+// namespace, keyed by anon token — pointers only, never durable account state.
+export function getVcsAccount(token) {
+  return world?.sigmacraft?.vcsAccounts?.[token] || null;
+}
+
+// Upsert a resolved pointer. The store stays "dumb" (no validate/vcs-bridge
+// import) — the caller passes the derived pointer. Churn guard: an unchanged
+// pointer does NOT raise worldDirty, so a linked viewer reconnecting every few
+// seconds never rewrites world.json.
+export function upsertVcsAccount(token, pointer) {
+  if (!world || !token || !pointer) return null;
+  if (!world.sigmacraft || typeof world.sigmacraft !== "object") world.sigmacraft = {};
+  if (!world.sigmacraft.vcsAccounts || typeof world.sigmacraft.vcsAccounts !== "object") {
+    world.sigmacraft.vcsAccounts = {};
+  }
+  const prev = world.sigmacraft.vcsAccounts[token] || null;
+  const next = {
+    vcsAccountId: pointer.vcsAccountId,
+    snapshotVersion: Number.isInteger(pointer.snapshotVersion)
+      ? pointer.snapshotVersion
+      : prev?.snapshotVersion || 0,
+    twitchLogin: pointer.twitchLogin || null,
+    identitySource: pointer.identitySource || "anonymous",
+    verified: pointer.verified === true,
+  };
+  if (
+    prev &&
+    prev.vcsAccountId === next.vcsAccountId &&
+    prev.snapshotVersion === next.snapshotVersion &&
+    prev.twitchLogin === next.twitchLogin &&
+    prev.identitySource === next.identitySource &&
+    prev.verified === next.verified
+  ) {
+    return prev; // unchanged — no world.json rewrite
+  }
+  world.sigmacraft.vcsAccounts[token] = next;
+  worldDirty = true;
+  return next;
+}
+
 // Cheap fire-and-forget zone signal (a kill, a death) that the world tick
 // drains and folds into zone pressure. Bounded so a flood can't grow it.
 const ZONE_EVENTS_MAX = 2000;
@@ -203,11 +244,18 @@ export function playerCount() {
   return players.size;
 }
 
-export function pushFeed(entry) {
+// Append a feed entry. `persist:false` adds it to the live in-memory ring (so /api/feed
+// and WS viewers still see it) WITHOUT raising the disk-persist signal — used for
+// ambient, regenerable Sigmacraft narration (NPC/director flavor). That keeps a
+// player-less server at a true zero-write steady state (the players.json+feed.json
+// analogue of the world.json idle-quiescence guard / PSU power safety). Ephemeral
+// entries still ride to disk opportunistically the next time a real event dirties
+// the store; they are simply never the CAUSE of a write.
+export function pushFeed(entry, { persist = true } = {}) {
   const e = { ...entry, at: Date.now() };
   feed.unshift(e);
   if (feed.length > FEED_MAX) feed.length = FEED_MAX;
-  dirty = true;
+  if (persist) dirty = true;
   return e;
 }
 

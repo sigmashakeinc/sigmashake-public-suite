@@ -255,6 +255,16 @@ export const STATS_BROADCAST_MS = 5000; // playercount + leaderboard push cadenc
 // timer — to honour the PSU power-safety rule (one cheap bounded loop).
 export const WORLD_TICK_MS = 60_000;
 
+// ── Sigmacraft fast world cadence (integrate-this product override) ───────
+// The supervised world loop fires at WORLD_TICK_BASE_MS so the Sigmacraft
+// fantasy layer feels alive every ~3s. The legacy 60s subsystems (faction
+// territory, zone pressure, NPC schedules, market sweep, crisis SM, retention)
+// are gated to run every LEGACY_TICK_EVERY base ticks, preserving their exact
+// original 60s cadence — still ONE timer, honouring the PSU power-safety rule.
+// Invariant: WORLD_TICK_BASE_MS * LEGACY_TICK_EVERY === WORLD_TICK_MS.
+export const WORLD_TICK_BASE_MS = 3_000;
+export const LEGACY_TICK_EVERY = 20;
+
 // ── Agent Realm — ArtifactsMMO-inspired API play (server-authoritative) ──
 // AI agents register for a bearer token and drive a character through
 // cooldown-gated actions. Every action returns a cooldown the agent must
@@ -272,7 +282,15 @@ export const AGENT_HP_PER_LEVEL = 12;
 export const AGENT_SKILLS = ["mining", "woodcutting", "fishing", "alchemy", "oracle"];
 // Cooldown seconds per action kind (move adds AGENT_COOLDOWN_PER_TILE per
 // manhattan tile travelled). Tuneable; agents poll cooldown.expiration.
-export const AGENT_COOLDOWN = { move: 4, fight: 8, gather: 6, rest: 3, craft: 9, oracle: 4 };
+export const AGENT_COOLDOWN = {
+  move: 4,
+  fight: 8,
+  gather: 6,
+  rest: 3,
+  craft: 9,
+  oracle: 4,
+  sigmacraft: 4,
+};
 export const AGENT_COOLDOWN_PER_TILE = 3;
 export const AGENT_COOLDOWN_MAX_S = 120; // never strand an agent longer than this
 

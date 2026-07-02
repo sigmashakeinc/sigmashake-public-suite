@@ -19,13 +19,14 @@ import {
   DEFAULT_PORT,
   GEAR_SLOTS,
   INVENTORY_MAX,
+  LEGACY_TICK_EVERY,
   STATS_BROADCAST_MS,
   STORE_FLUSH_MS,
-  WORLD_TICK_MS,
+  WORLD_TICK_BASE_MS,
 } from "../shared/constants.js";
 import { ENEMIES } from "../shared/enemies.js";
 import { FACTION_IDS, factionById } from "../shared/factions.js";
-import { forgeRaidDrop, itemPower } from "../shared/loot.js";
+import { itemPower } from "../shared/loot.js";
 import { freshMarket } from "../shared/market.js";
 import { passivePointsFor, passiveTreePayload } from "../shared/passive-tree.js";
 import {
@@ -36,6 +37,7 @@ import {
   xpForLevel,
 } from "../shared/progression.js";
 import { ensureQuests } from "../shared/quests.js";
+import { projectSigmacraftSnapshot } from "../shared/sigmacraft.js";
 import { RESERVABLE_SKILLS } from "../shared/skills.js";
 import { derive } from "../shared/stats.js";
 import {
@@ -50,6 +52,7 @@ import { ZONES } from "../shared/zones.js";
 import { attachAgentRealm } from "./agent-realm.js";
 import * as arena from "./arena.js";
 import { refreshLastSeen } from "./arena.js";
+import { createBossDropForge } from "./cerebras-boss-drops.js";
 import { dispatchCommand, factionRepView, joinFaction, resolveFactionId } from "./commands.js";
 import * as drops from "./drops.js";
 import { delveFeedback } from "./feedback.js";
@@ -60,11 +63,15 @@ import { buildNaviCall } from "./navi-call.js";
 import * as npcWorld from "./npc-world.js";
 import { startOnboarding } from "./onboarding.js";
 import { attachOracleBazaar } from "./oracle-bazaar.js";
+import { runPartyDelve } from "./party-delve.js";
 import { attachPlayOnboard } from "./play-onboard.js";
 import * as raidState from "./raid-state.js";
 import { attachRealtime } from "./realtime.js";
 import * as retention from "./retention.js";
 import express from "./router.js";
+import * as sigmacraft from "./sigmacraft.js";
+import { attachDirector } from "./sigmacraft-director.js";
+import { attachNpcPlanner } from "./sigmacraft-npc-agents.js";
 import * as store from "./store.js";
 import * as storytellerLoop from "./storyteller-loop.js";
 import {
@@ -75,7 +82,7 @@ import {
   onShutdown,
   superviseInterval,
 } from "./supervisor.js";
-import { vCharacter, vEnum } from "./validate.js";
+import { vCharacter, vEnum, vSigmacraftIntent } from "./validate.js";
 import * as voting from "./voting.js";
 import {
   contributeToCrisis,
@@ -423,6 +430,110 @@ app.get(
   "/api/feed",
   guard("GET /api/feed", (_req, res) => {
     res.json({ feed: store.getFeed() });
+  }),
+);
+// Sigmacraft read model (integrate-this PR8 read surface). Optional ?token=
+// scopes the snapshot to a player's place + valid actions; otherwise anonymous.
+app.get(
+  "/api/sigmacraft/snapshot",
+  guard("GET /api/sigmacraft/snapshot", (req, res) => {
+    const qs = (req.url || "").split("?")[1] || "";
+    const token = String(new URLSearchParams(qs).get("token") || "").slice(0, 64);
+    const character = token ? store.getPlayer(token)?.character || null : null;
+    res.json({
+      ok: true,
+      snapshot: projectSigmacraftSnapshot(store.getWorldState(), character, { token }),
+    });
+  }),
+);
+// Static overworld tile graph (fetched once by the playtest UI + agents). The map
+// is deterministic and never mutates, so it is served whole; the per-snapshot
+// worldMap carries the live windowed neighborhood + npcCounts.
+app.get(
+  "/api/sigmacraft/map",
+  guard("GET /api/sigmacraft/map", (_req, res) => {
+    res.json({ ok: true, map: store.getWorldState()?.sigmacraft?.map || null });
+  }),
+);
+// Sigmacraft intent write path (integrate-this PR5). A token-owning player
+// queues ONE bounded, validated intent resolved by the next world tick. All
+// inbound mutation passes the validate.js trust boundary; movement is gated by
+// the player's unlocked zones; nonce de-dup is idempotent.
+app.post(
+  "/api/sigmacraft/intent",
+  guard("POST /api/sigmacraft/intent", (req, res) => {
+    const token = String(req.body?.token || "").slice(0, 64);
+    const rec = token ? store.getPlayer(token) : null;
+    if (!rec?.character) {
+      res.status(401).json({ ok: false, error: "unknown token" });
+      return;
+    }
+    let intent;
+    try {
+      intent = vSigmacraftIntent(req.body?.intent ?? req.body);
+    } catch (err) {
+      res.status(400).json({ ok: false, error: err?.message || "bad intent" });
+      return;
+    }
+    // Tile moves are gated at apply time (existence + adjacency in the tick),
+    // not here — the overworld is a free-roam graph, not level-locked zones.
+    const world = store.getWorldState();
+    const result = sigmacraft.enqueueSigmacraftIntent(world, token, intent);
+    store.putWorldState(world);
+    res.status(result.status === "rejected" ? 409 : 200).json({
+      ok: result.status !== "rejected",
+      ...result,
+    });
+  }),
+);
+// Playtest bootstrap: mint a fresh, roam-ready sigma server-side (no untrusted
+// input — uses the canonical freshCharacter) and return its token + the initial
+// Sigmacraft snapshot. Powers the /sigmacraft test interface end-to-end through
+// the real intent/snapshot path.
+app.post(
+  "/api/sigmacraft/playtest",
+  guard("POST /api/sigmacraft/playtest", (_req, res) => {
+    const token = `sig_${crypto.randomBytes(12).toString("hex")}`;
+    const seed = crypto.randomBytes(4).readUInt32BE(0) >>> 0 || 1;
+    const character = freshCharacter(seed, "Playtester");
+    character.highestLevel = 60; // unlock every zone (max minLevel is 50) for free roam
+    character.isPlaytest = true; // sandbox flag — the ONLY characters the party-delve demo may touch
+    character.lastSeen = Date.now();
+    store.putPlayer(token, character);
+    res.json({
+      ok: true,
+      token,
+      snapshot: projectSigmacraftSnapshot(store.getWorldState(), character, { token }),
+    });
+  }),
+);
+// Party dungeon delve (demo). Runs INLINE here (server-authoritative, bounded,
+// NEVER in the 3s tick / planner) — the party at a dungeon tile fights a scaled,
+// turn-based encounter; the leader keeps the loot. Mirrors the live-delve discipline.
+app.post(
+  "/api/sigmacraft/delve",
+  guard("POST /api/sigmacraft/delve", (req, res) => {
+    const token = String(req.body?.token || "").slice(0, 64);
+    const rec = token ? store.getPlayer(token) : null;
+    if (!rec?.character) {
+      res.status(401).json({ ok: false, error: "unknown token" });
+      return;
+    }
+    // Playtest-ONLY: this demo mutates a sandbox run (demo level/HP/permadeath). A
+    // real account must never reach it (would destroy progression / grant free loot).
+    if (!rec.character.isPlaytest) {
+      res.status(403).json({ ok: false, error: "party delve is a playtest-only demo surface" });
+      return;
+    }
+    const world = store.getWorldState();
+    const out = runPartyDelve({ world, store, token, character: rec.character, bossDrops });
+    if (!out.ok) {
+      res.status(400).json(out);
+      return;
+    }
+    store.putPlayer(token, rec.character); // persist the leader's new loot
+    store.putWorldState(world); // persist party.lastDelve
+    res.json(out);
   }),
 );
 app.get(
@@ -2244,6 +2355,13 @@ function startMonster(fromLogin) {
   return currentRaid;
 }
 
+// Gemma boss-drop forge (Phase D). Default OFF (BOSS_DROPS_LIVE unset) ⇒
+// forgeOrCached is exactly forgeRaidDrop and warm() is a no-op, so raid loot is
+// byte-identical to before. When enabled, the FIRST kill of a boss ships the
+// deterministic drop + warms an off-tick Gemma re-theme; later kills get the
+// cached, validated enrichment instantly. The LLM is never awaited on the kill path.
+const bossDrops = createBossDropForge({});
+
 function endRaid(victory, lastHitLogin) {
   if (!currentRaid) return null;
   const raid = currentRaid;
@@ -2290,7 +2408,13 @@ function endRaid(victory, lastHitLogin) {
         rec.character.lifetimeKills = (rec.character.lifetimeKills || 0) + 1;
         if (isBoss) {
           const lvl = rec.character.run?.level || 1;
-          const item = forgeRaidDrop(raid.boss_id, lvl);
+          // Instant, sync: cached Gemma enrichment if warm, else the deterministic
+          // forge. NEVER awaits the model on the kill path.
+          const item = bossDrops.forgeOrCached(raid.boss_id, lvl);
+          // Fire-and-forget: warm the cache off-tick for the next kill of this boss.
+          bossDrops
+            .warm(raid.boss_id, lvl, { killerLevel: lvl, zone: raid.bossZone })
+            .catch(() => {});
           if (item) {
             const inv = rec.character.run?.inventory;
             if (Array.isArray(inv) && inv.length < INVENTORY_MAX) {
@@ -3001,6 +3125,16 @@ app.get(
   }),
 );
 
+// Sigmacraft playtest interface — world map + interaction actions + a 2D
+// side-scrolling zone pane. A standalone test surface for the Sigmacraft layer;
+// drives the real welcome/intent/snapshot path (integrate-this).
+app.get(
+  "/sigmacraft",
+  guard("GET /sigmacraft", (_req, res) => {
+    res.sendFile(path.join(ROOT, "client", "sigmacraft-playtest.html"));
+  }),
+);
+
 // Arena overlay — canvas-based "every chatter on stage" scene with one
 // LPC avatar per active chatter, HP bars, and the auto-battle ticker.
 // Designed for a full-screen OBS browser source (1920×1080); transparent
@@ -3041,6 +3175,34 @@ const oracle = attachOracleBazaar(app, {
 });
 superviseInterval("oracle.sweep", () => oracle.sweep(), 15_000);
 
+// Gemma NPC proposal lane (integrate-this PR7) — its OWN supervised 15s loop,
+// strictly OFF the 3s world tick. Proposes bounded controller state for one NPC
+// per cycle (deterministic fallback by default; live Gemma env-gated). A slow or
+// failing model call is contained here and can never enter the tick budget.
+const npcPlanner = attachNpcPlanner({ store });
+superviseInterval(
+  "npc.plan",
+  () => {
+    npcPlanner.plan().catch((err) => console.error(`[npc.plan] ${err?.message || err}`));
+  },
+  15_000,
+);
+
+// Director / game-master (PR9) — ONE world-level brain proposing bounded public
+// beats off the tick, paced (see DIRECTOR_BEAT_COOLDOWN_TICKS). Deterministic
+// fallback by default; live Gemma deferred (DIRECTOR_LIVE). Its own supervised
+// loop, NOT a second world timer (PSU power safety).
+const director = attachDirector({ store });
+superviseInterval(
+  "sigmacraft.director",
+  () => {
+    director
+      .propose()
+      .catch((err) => console.error(`[sigmacraft.director] ${err?.message || err}`));
+  },
+  30_000,
+);
+
 // ── Static ────────────────────────────────────────────────────────────
 // client/ is the web root; /shared exposes the sim modules for browser
 // ESM imports (the same files the server itself runs).
@@ -3058,12 +3220,16 @@ superviseInterval("stats.broadcast", () => rt.broadcastStats(), STATS_BROADCAST_
 // The market sweep rides this ONE world loop as a sub-advancer (master §4.1
 // step 7) — expires listings, finalizes auctions, re-derives the gold gauge,
 // toggles the treasury-mode brake. No second timer (PSU power safety).
+// The loop now fires at WORLD_TICK_BASE_MS (≈3s) so the Sigmacraft fast lane
+// feels alive; market + storyteller stay on their 60s cadence via legacyEvery.
 startWorldTick({
   store,
   rt,
   superviseInterval,
-  intervalMs: WORLD_TICK_MS,
+  intervalMs: WORLD_TICK_BASE_MS,
+  legacyEvery: LEGACY_TICK_EVERY,
   extraAdvancers: [(ctx) => market.sweep(ctx), (ctx) => storytellerLoop.advance(ctx)],
+  fastAdvancers: [(ctx) => sigmacraft.advance(ctx)],
 });
 
 // Featured-arena rotator. Picks an "active" sigma (lastSeen within the

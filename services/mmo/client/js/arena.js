@@ -722,7 +722,7 @@ function spawnBossPopup(x, y, dmg, crit) {
   });
 }
 
-function drawBossPopups(now) {
+function _drawBossPopups(now) {
   for (let i = bossPopups.length - 1; i >= 0; i -= 1) {
     const p = bossPopups[i];
     const age = now - p.born;
@@ -1397,7 +1397,7 @@ function drawChatter(chatter, idx, total, now, dt) {
   };
 }
 
-function drawDrop(d, now) {
+function _drawDrop(d, now) {
   // In bar mode the original 0..1080 y-coords would push drops off the
   // 170-px strip; re-anchor a compact orb near the chatter row instead.
   if (barMode) {
@@ -1482,7 +1482,7 @@ function drawDrop(d, now) {
   ctx.restore();
 }
 
-function drawClaimAnims(now) {
+function _drawClaimAnims(now) {
   const rosterArr = [...roster.values()];
   const indexByLogin = new Map();
   rosterArr.forEach((c, i) => indexByLogin.set(c.login, i));
@@ -1537,7 +1537,7 @@ function drawClaimAnims(now) {
   }
 }
 
-function drawSessionBanner(now) {
+function _drawSessionBanner(now) {
   if (!sessionBanner || now > sessionBanner.until) {
     sessionBanner = null;
     return;
@@ -2217,7 +2217,7 @@ function drawPartyMember(chatter, heroX, heroY, now, recoilFlash = false) {
   }
 }
 
-function drawBossHpBarOnCanvas(_now) {
+function _drawBossHpBarOnCanvas(_now) {
   const barH = 32; // slim ER proportions
   const margin = 40;
   const barY = VH - 130; // above whatever "game bar" strip OBS layers on
@@ -2436,7 +2436,7 @@ function connect() {
         if (m.drops) setDropsFromSnapshot(m.drops);
         // D2 fix: if a raid is already active when this client connects,
         // enter boss mode from the snapshot without waiting for raidStart.
-        if (m.raid && m.raid.boss_id) applyRaidStart(m.raid);
+        if (m.raid?.boss_id) applyRaidStart(m.raid);
         break;
       case "sessionEvent":
         sessionBanner = {

@@ -127,7 +127,7 @@ describe("D3 — autonomous boss attack damage bounds", () => {
   }
 
   test("goblin_king autonomous attack never exceeds 3x base attack", () => {
-    const def = ENEMIES["goblin_king"];
+    const def = ENEMIES.goblin_king;
     const scale = 0.35;
     const base = Math.max(6, Math.round((def.attack || 10) * scale));
     const maxExpected = base + Math.round(base * 0.5); // max possible

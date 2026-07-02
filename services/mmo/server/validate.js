@@ -47,6 +47,22 @@ import {
   pruneToConnected,
 } from "../shared/passive-tree.js";
 import { QUEST_MAX_ACTIVE, QUEST_TEMPLATE_IDS } from "../shared/quests.js";
+import {
+  DIRECTOR_ID_MAX,
+  DIRECTOR_KINDS,
+  DIRECTOR_TEXT_MAX,
+  DIRECTOR_TITLE_MAX,
+  MAX_DIRECTOR_PROPOSALS_PER_CYCLE,
+  MAX_NPC_AGENDA_STEPS,
+  MAX_NPC_AGENT_GOALS,
+  MAX_NPC_AGENT_INCIDENTS,
+  MAX_NPC_PROPOSALS_PER_CYCLE,
+  NPC_ACTION_KINDS,
+  NPC_DIALOGUE_MAX,
+  NPC_GOAL_TEXT_MAX,
+  NPC_SUMMARY_MAX,
+  SIGMACRAFT_INTENT_KINDS,
+} from "../shared/sigmacraft.js";
 import { TALENT_IDS } from "../shared/skill-talents.js";
 import {
   RESERVABLE_SKILL_IDS,
@@ -169,6 +185,132 @@ const TOKEN_RE = /^sig_[a-f0-9]{24}$/;
 export function vToken(x) {
   if (typeof x !== "string" || !TOKEN_RE.test(x)) fail("bad token");
   return x;
+}
+
+// Generated overworld ids are not in any frozen enum, so the boundary validates
+// SHAPE only; the tick re-checks existence + adjacency before mutating (the
+// contextual gate a stateless validator can't prove).
+const TILE_ID_RE = /^[a-z][a-z0-9_]{1,30}$/; // millbridge, wild_03_07, old_pilgrim_road
+const NPC_AGENT_ID_RE = /^npc_[a-z]+_\d{3}$/; // npc_adventurer_000 …
+export function vTileId(x) {
+  const s = vStr(x, 32); // throws on missing/non-string; scrubs control chars
+  if (!TILE_ID_RE.test(s)) fail("bad tile id");
+  return s;
+}
+export function vNpcAgentId(x) {
+  const s = vStr(x, 32);
+  if (!NPC_AGENT_ID_RE.test(s)) fail("bad npc id");
+  return s;
+}
+
+// Sigmacraft bounded intent (integrate-this trust boundary). Rejects unknown
+// kinds and, for `move`, malformed tile ids — shape only; the tick re-checks tile
+// existence + adjacency. `nonce` is bounded + optional (idempotent de-dup).
+export function vSigmacraftIntent(x) {
+  const o = asObj(x);
+  const kind = vEnum(o.kind, SIGMACRAFT_INTENT_KINDS); // throws on bad kind
+  const nonce = vStr(o.nonce, 64, "");
+  if (kind === "move") {
+    return { kind, nonce, targetId: vTileId(o.targetId) }; // throws on malformed tile id
+  }
+  if (kind === "recruit") {
+    return { kind, nonce, targetNpcId: vNpcAgentId(o.targetNpcId) }; // co-located npc, re-checked at apply
+  }
+  // rest | talk | disband — no target.
+  return { kind, nonce };
+}
+
+// Gemma NPC proposal (integrate-this PR7) — the trust boundary for off-tick model
+// output. vArr DROPS malformed proposals rather than rejecting the batch; vEnum
+// hard-constrains npcId + move targets to known sets; vStr scrubs control/zero-
+// width chars and caps length so nothing unbounded reaches the feed.
+export function vNpcMemory(x) {
+  const o = x && typeof x === "object" ? x : {};
+  return {
+    goals: vArr(
+      o.goals,
+      (g) => ({ text: vStr(asObj(g).text, NPC_GOAL_TEXT_MAX, "") }),
+      MAX_NPC_AGENT_GOALS,
+    ),
+    recentIncidents: vArr(
+      o.recentIncidents,
+      (i) => ({
+        summary: vStr(asObj(i).summary, NPC_DIALOGUE_MAX, ""),
+        tick: vInt(asObj(i).tick, 0, 1e9, 0),
+      }),
+      MAX_NPC_AGENT_INCIDENTS,
+    ),
+    summaryPointer: vStr(o.summaryPointer, NPC_SUMMARY_MAX, ""),
+  };
+}
+
+// One STRATEGIC agenda objective: an action kind + an optional destination tile.
+// `targetTileId` is shape-validated only (vTileId); existence + reachability are
+// re-checked on the tick when the NPC actually walks the agenda. The tick derives
+// the concrete per-tick primitive from this (deriveNextStep) — the model never
+// hands us a raw move, so it cannot teleport.
+export function vNpcAgendaStep(x) {
+  const o = asObj(x);
+  const kind = vEnum(o.kind, NPC_ACTION_KINDS); // move|talk|gather|fight|rest|craft
+  const step = { kind };
+  if (o.targetTileId !== undefined && o.targetTileId !== null && o.targetTileId !== "") {
+    step.targetTileId = vTileId(o.targetTileId); // throws → this objective is dropped
+  } else if (kind === "move") {
+    fail("move objective needs a targetTileId"); // a destination-less move is a no-op slot → drop it
+  }
+  return step;
+}
+
+// The strategic agenda: an ordered, bounded list of objectives. vArr DROPS malformed
+// objectives (keeping the valid ones) and caps the length.
+export function vNpcAgenda(x) {
+  return vArr(x, vNpcAgendaStep, MAX_NPC_AGENDA_STEPS);
+}
+
+export function vNpcProposal(x) {
+  const o = asObj(x);
+  return {
+    npcId: vNpcAgentId(o.npcId), // throws on a malformed npc id
+    currentGoal: vStr(o.currentGoal, NPC_GOAL_TEXT_MAX, ""),
+    dialogueLine: vStr(o.dialogueLine, NPC_DIALOGUE_MAX, ""),
+    agenda: vNpcAgenda(o.agenda), // high-level plan; tick cascades it into primitives
+    memoryPatch: vNpcMemory(o.memoryPatch),
+    source: vEnum(o.source, ["fallback", "gemma"], "fallback"),
+  };
+}
+
+export function vNpcProposals(x) {
+  return vArr(x, vNpcProposal, MAX_NPC_PROPOSALS_PER_CYCLE);
+}
+
+// Director / game-master proposal (integrate-this PR9) — the trust boundary for the
+// off-tick GM brain. The Director owns NO authority: a proposal may set narrative
+// text + (for quest_beat) the PUBLIC objective, nothing else (no loot/XP/death/
+// market). vEnum hard-constrains the kind; vStr scrubs + caps every string; an
+// optional targetTileId is shape-checked (tick re-checks existence). A malformed
+// proposal throws → vDirectorProposals DROPS it rather than failing the batch.
+export function vDirectorProposal(x) {
+  const o = asObj(x);
+  const kind = vEnum(o.kind, DIRECTOR_KINDS); // throws on anything else
+  const proposal = {
+    kind,
+    id: vStr(o.id, DIRECTOR_ID_MAX, ""),
+    title: vStr(o.title, DIRECTOR_TITLE_MAX, ""),
+    text: vStr(o.text, DIRECTOR_TEXT_MAX, ""),
+    source: vEnum(o.source, ["fallback", "gemma"], "fallback"),
+  };
+  if (o.targetTileId !== undefined && o.targetTileId !== null && o.targetTileId !== "") {
+    proposal.targetTileId = vTileId(o.targetTileId); // shape only; existence re-checked at apply
+  }
+  if (kind === "quest_beat") {
+    proposal.questId = vStr(o.questId, DIRECTOR_ID_MAX, "");
+    proposal.stageId = vStr(o.stageId, DIRECTOR_ID_MAX, "");
+  }
+  return proposal;
+}
+
+export function vDirectorProposals(x) {
+  return vArr(x, vDirectorProposal, MAX_DIRECTOR_PROPOSALS_PER_CYCLE);
 }
 
 // ── Game shapes ───────────────────────────────────────────────────────

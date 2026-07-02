@@ -1,0 +1,426 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>World of Sigmacraft — Playtest</title>
+<style>
+  :root {
+    --bg-0: #0a0d0c; --bg-1: #131a17; --bg-2: #1d2723; --bg-3: #2a352f; --line: rgba(200,215,205,.14);
+    --text: #ecf2ed; --muted: #9fb0a6; --amber: #d8a657; --teal: #7fc4a5; --danger: #d77474;
+    --shadow: 0 18px 44px rgba(0,0,0,.4);
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; }
+  body {
+    background: radial-gradient(1200px 700px at 70% -10%, #1a2420, var(--bg-0) 70%);
+    color: var(--text); font: 14px/1.5 system-ui, -apple-system, sans-serif; overflow: hidden;
+  }
+  header {
+    display: flex; align-items: baseline; gap: 16px; padding: 10px 18px;
+    border-bottom: 1px solid var(--line); background: rgba(0,0,0,.25);
+  }
+  header h1 { font-size: 16px; margin: 0; letter-spacing: .06em; color: var(--amber); }
+  header .meta { color: var(--muted); font-size: 12px; }
+  header .who { margin-left: auto; color: var(--teal); font-size: 12px; }
+  #app { display: grid; grid-template-columns: 1fr 360px; gap: 12px; padding: 12px; height: calc(100% - 49px); }
+  .panel {
+    background: linear-gradient(180deg, var(--bg-2), var(--bg-1)); border: 1px solid var(--line);
+    border-radius: 14px; box-shadow: var(--shadow); padding: 12px; overflow: hidden; display: flex; flex-direction: column;
+  }
+  .panel h2 { margin: 0 0 8px; font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--amber); }
+  .right { gap: 0; overflow-y: auto; }
+  .right h2 { margin-top: 12px; }
+  .right h2:first-child { margin-top: 0; }
+
+  /* world map — grid tiles (vertical-slice style) */
+  .map-meta { color: var(--muted); font-size: 11px; margin-bottom: 8px; }
+  #map-grid {
+    display: grid; gap: 2px; flex: 1; min-height: 0; align-content: start;
+  }
+  .map-cell {
+    position: relative; aspect-ratio: 1; border: 1px solid rgba(0,0,0,.25); border-radius: 3px;
+    cursor: default; overflow: hidden; min-width: 0; transition: filter .1s;
+  }
+  .map-cell .pin { position: absolute; inset: 0; display: grid; place-items: center; font-size: 11px; color: #fff; text-shadow: 0 1px 2px #000; }
+  .map-cell .cnt { position: absolute; right: 1px; bottom: 0; font-size: 8px; color: rgba(255,255,255,.92); text-shadow: 0 1px 2px #000; line-height: 1; }
+  .map-cell.exit { cursor: pointer; box-shadow: inset 0 0 0 1.5px rgba(127,196,165,.9); }
+  .map-cell.exit:hover { filter: brightness(1.4); }
+  .map-cell.current { box-shadow: 0 0 0 2px #fff; z-index: 2; }
+  .map-legend { display: flex; flex-wrap: wrap; gap: 8px 12px; margin-top: 10px; color: var(--muted); font-size: 11px; }
+  .map-legend .sw { display: inline-block; width: 9px; height: 9px; border-radius: 2px; margin-right: 4px; vertical-align: middle; }
+
+  /* small side-scroller pane */
+  .scene-pane { position: relative; height: 156px; border-radius: 10px; overflow: hidden; border: 1px solid var(--line); margin-bottom: 6px; }
+  #scene { display: block; width: 100%; height: 100%; }
+  .scene-cap { position: absolute; left: 12px; bottom: 10px; text-shadow: 0 2px 8px #000; pointer-events: none; }
+  .scene-cap .place { font-size: 17px; font-weight: 700; }
+  .scene-cap .tierbadge { display: inline-block; font-size: 9px; padding: 2px 7px; border-radius: 999px; margin-top: 3px; }
+  .flavor { color: #cdd8d0; font-size: 12px; margin: 2px 0 0; }
+
+  .actions { display: flex; flex-direction: column; gap: 7px; }
+  button.act {
+    text-align: left; padding: 9px 11px; border-radius: 9px; cursor: pointer;
+    background: rgba(127,196,165,.10); color: var(--text); border: 1px solid var(--line); font: inherit;
+    transition: background .12s, border-color .12s;
+  }
+  button.act:hover { background: rgba(127,196,165,.22); border-color: var(--teal); }
+  button.act.rest { background: rgba(216,166,87,.10); }
+  button.act.talk { background: rgba(150,150,220,.12); }
+  button.act.recruit { background: rgba(127,196,165,.14); }
+  button.act.tiny { padding: .1rem .4rem; font-size: .8em; }
+  #tavern-wrap { margin-top: .6rem; padding: .5rem; border: 1px solid rgba(127,196,165,.25); border-radius: 8px; background: rgba(127,196,165,.05); }
+  .party-hd { font-weight: 600; margin-bottom: .3rem; }
+  .party-list { list-style: none; padding: 0; margin: .2rem 0; }
+  .party-list li { padding: .12rem 0; }
+  #dungeon-wrap { margin-top: .6rem; padding: .5rem; border: 1px solid rgba(215,116,116,.3); border-radius: 8px; background: rgba(215,116,116,.05); }
+  button.act.delve { background: rgba(215,116,116,.18); width: 100%; margin: .4rem 0; font-weight: 600; }
+  .combat { margin-top: .5rem; }
+  .combat-hd { font-weight: 700; margin-bottom: .25rem; }
+  .combat-loot ul, .combat-log { list-style: none; padding: .2rem 0 0; margin: 0; }
+  .combat-loot li, .combat-log li { padding: .08rem 0; font-size: .92em; }
+  .combat-log { max-height: 220px; overflow-y: auto; }
+  .combat-log li.kill { color: var(--danger); }
+  .pending { color: var(--amber); font-size: 12px; min-height: 16px; }
+  .obj { font-size: 12px; color: #e7d9b8; border-left: 2px solid var(--amber); padding-left: 8px; margin: 4px 0; }
+  .occ { color: var(--muted); font-size: 11px; }
+  .occ b { color: var(--teal); }
+  #events { list-style: none; margin: 6px 0 0; padding: 0; }
+  #events li { padding: 5px 0; border-top: 1px solid var(--line); color: #cdd8d0; font-size: 12px; }
+  #events li .t { color: var(--muted); font-size: 10px; margin-right: 6px; }
+  .dim { color: var(--muted); }
+</style>
+</head>
+<body>
+<header>
+  <h1>WORLD OF SIGMACRAFT</h1>
+  <span class="meta" id="hdr-meta">connecting…</span>
+  <span class="who" id="hdr-who"></span>
+</header>
+<div id="app">
+  <section class="panel">
+    <h2>Realm Map</h2>
+    <div class="map-meta" id="map-meta"></div>
+    <div id="map-grid"></div>
+    <div class="map-legend" id="map-legend">
+      <span>◆ you</span><span>teal edge: travel</span>
+    </div>
+  </section>
+
+  <section class="panel right">
+    <h2>Your Surroundings</h2>
+    <div class="scene-pane">
+      <canvas id="scene"></canvas>
+      <div class="scene-cap">
+        <div class="place" id="scene-place">—</div>
+        <div class="tierbadge" id="scene-tier"></div>
+      </div>
+    </div>
+    <p class="flavor" id="scene-flavor"></p>
+
+    <h2>Objective</h2>
+    <div class="obj" id="objective">—</div>
+
+    <h2>Actions</h2>
+    <div class="pending" id="pending"></div>
+    <div class="actions" id="actions"></div>
+
+    <h2>Who's Here</h2>
+    <div class="occ" id="occupants"></div>
+
+    <div id="tavern-wrap" style="display:none">
+      <h2>🍺 Tavern — Party Finding</h2>
+      <div class="party" id="party"></div>
+      <div class="recruits" id="recruits"></div>
+    </div>
+
+    <div id="dungeon-wrap" style="display:none">
+      <h2>⚔ Dungeon</h2>
+      <div id="dungeon-body"></div>
+    </div>
+
+    <h2>Recent Events</h2>
+    <ul id="events"><li class="dim">the realm stirs…</li></ul>
+  </section>
+</div>
+
+<script type="module">
+const $ = (id) => document.getElementById(id);
+let token = null;
+let snap = null;
+let fullMap = null; // static overworld, fetched once
+const nonce = () => (crypto.randomUUID ? crypto.randomUUID() : String(Math.random())).slice(0, 24);
+
+// tile type → map colour
+const TYPE_COLOR = {
+  town: "#d8a657", city: "#c08a3e", dungeon: "#7a3b2e", ruins: "#5a4a6b",
+  shrine: "#5f7a8c", road: "#6b6452", wilds: "#2c4a36",
+};
+
+async function boot() {
+  try {
+    const [pt, mp] = await Promise.all([
+      fetch("/api/sigmacraft/playtest", { method: "POST" }).then(r => r.json()),
+      fetch("/api/sigmacraft/map").then(r => r.json()),
+    ]);
+    token = pt.token; snap = pt.snapshot; fullMap = mp.map;
+    $("hdr-who").textContent = `playtest · ${token.slice(-6)}`;
+    render();
+    setInterval(refresh, 1500);
+  } catch { $("hdr-meta").textContent = "failed to reach the realm"; }
+}
+async function refresh() {
+  if (!token) return;
+  try {
+    const j = await (await fetch(`/api/sigmacraft/snapshot?token=${encodeURIComponent(token)}`)).json();
+    if (j.ok) { snap = j.snapshot; render(); }
+  } catch { /* transient */ }
+}
+async function act(intent) {
+  if (!token) return;
+  $("pending").textContent = `… ${intent.kind}${intent.targetId ? ` → ${intent.targetId}` : ""} (resolving next tick)`;
+  try {
+    await fetch("/api/sigmacraft/intent", {
+      method: "POST", headers: { "content-type": "application/json" },
+      body: JSON.stringify({ token, intent: { ...intent, nonce: nonce() } }),
+    });
+    setTimeout(refresh, 600);
+  } catch { /* ignore */ }
+}
+
+// tier -> palette
+const TIER = [
+  { sky: ["#3a2f22", "#15110b"], hill: "#241c12", ground: "#1a140c", glow: "#d8a657" },
+  { sky: ["#1f3326", "#0c150f"], hill: "#16271b", ground: "#0f1c13", glow: "#7fc4a5" },
+  { sky: ["#16241f", "#0a120e"], hill: "#10201a", ground: "#0b1611", glow: "#5fae93" },
+  { sky: ["#3a1d14", "#160a07"], hill: "#2a120b", ground: "#1d0c07", glow: "#e07a4a" },
+  { sky: ["#241733", "#0d0916"], hill: "#1b1129", ground: "#120a1d", glow: "#9a7fd0" },
+  { sky: ["#10172a", "#050811"], hill: "#0b1020", ground: "#070a15", glow: "#6f9fd8" },
+];
+// scene palette indexed by tile danger (1..5)
+const tierOf = (d) => Math.min(TIER.length - 1, Math.max(0, (d ?? 1) - 1));
+const pal = () => TIER[tierOf(snap?.place?.danger)];
+
+// ── world map: the full overworld tile grid ─────────────────────────────────
+let legendDrawn = false;
+function render_map() {
+  if (!fullMap?.tiles) return;
+  const grid = $("map-grid");
+  grid.style.gridTemplateColumns = `repeat(${fullMap.width}, 1fr)`;
+  const reach = new Set((snap?.validActions || []).filter(a => a.kind === "move").map(a => a.targetId));
+  const curId = snap?.place?.id;
+  // live npcCounts for the windowed neighbourhood (the rest show 0)
+  const counts = {};
+  for (const c of (snap?.worldMap?.cells || [])) counts[c.id] = c.npcCount;
+  const tiles = Object.values(fullMap.tiles).sort((a, b) => a.y - b.y || a.x - b.x);
+  $("map-meta").textContent = `${tiles.length} tiles · ${(snap?.occupants || []).length} here with you`;
+  grid.innerHTML = "";
+  for (const t of tiles) {
+    const cell = document.createElement("div");
+    const reachable = reach.has(t.id);
+    const current = t.id === curId;
+    cell.className = `map-cell${current ? " current" : ""}${reachable ? " exit" : ""}`;
+    cell.style.background = TYPE_COLOR[t.type] || "#2c4a36";
+    cell.title = `${t.name} · ${t.type} · danger ${t.danger}`;
+    const n = counts[t.id] || 0;
+    cell.innerHTML = (current ? `<span class="pin">◆</span>` : "") + (n > 0 ? `<span class="cnt">${n > 9 ? "9+" : n}</span>` : "");
+    if (reachable) cell.onclick = () => act({ kind: "move", targetId: t.id });
+    grid.appendChild(cell);
+  }
+  if (!legendDrawn) {
+    const lg = $("map-legend");
+    for (const [type, col] of Object.entries(TYPE_COLOR)) {
+      lg.insertAdjacentHTML("beforeend", `<span><i class="sw" style="background:${col}"></i>${type}</span>`);
+    }
+    legendDrawn = true;
+  }
+}
+
+// ── actions / events / surroundings ─────────────────────────────────────────
+function render_side() {
+  $("objective").textContent = snap?.objective?.title
+    ? `${snap.objective.title} — ${snap.objective.prompt || ""}` : "wander and witness the realm.";
+  const wrap = $("actions"); wrap.innerHTML = "";
+  for (const a of (snap?.validActions || [])) {
+    const b = document.createElement("button");
+    b.className = `act${a.kind === "rest" ? " rest" : ""}`;
+    b.textContent = a.label || a.kind;
+    b.onclick = () => act({ kind: a.kind, targetId: a.targetId });
+    wrap.appendChild(b);
+  }
+  const occ = snap?.occupants || [];
+  if (occ.length) {
+    const talk = document.createElement("button");
+    talk.className = "act talk"; talk.textContent = `Talk with the locals (${occ.length})`;
+    talk.onclick = () => act({ kind: "talk" });
+    wrap.appendChild(talk);
+  }
+  $("occupants").innerHTML = occ.length
+    ? occ.map(o => `<b>${o.name}</b>${o.kind === "npc" && o.faction ? ` <span class="dim">(${o.faction})</span>` : ""}`).join(", ")
+    : '<span class="dim">no one else is here.</span>';
+  render_tavern();
+  render_dungeon();
+  $("pending").textContent = snap?.pendingIntent
+    ? `… ${snap.pendingIntent.kind}${snap.pendingIntent.targetId ? ` → ${snap.pendingIntent.targetId}` : ""} (queued)` : "";
+  const evs = (snap?.recentEvents || []).slice().reverse();
+  $("events").innerHTML = evs.length
+    ? evs.map(e => `<li><span class="t">t${e.tick}</span>${e.text}</li>`).join("")
+    : '<li class="dim">the realm is quiet…</li>';
+}
+
+// Tavern: only at a safe town/city. Recruit co-located NPCs into your party,
+// see the roster, then (once we journey) head out to a dungeon.
+function render_tavern() {
+  const wrap = $("tavern-wrap");
+  const inTown = snap?.place && (snap.place.type === "town" || snap.place.type === "city");
+  if (!inTown) { wrap.style.display = "none"; return; }
+  wrap.style.display = "block";
+  const party = snap?.party;
+  const members = party?.members || [];
+  $("party").innerHTML =
+    `<div class="party-hd">Party (${members.length}/4)${party?.status && party.status !== "forming" ? ` · <span class="dim">${party.status}</span>` : ""}` +
+    (members.length ? ` <button class="act tiny" id="btn-disband">Disband</button>` : "") + `</div>` +
+    (members.length
+      ? `<ul class="party-list">${members.map(m => `<li>⚔ <b>${m.name}</b> <span class="dim">${m.archetype || ""}</span></li>`).join("")}</ul>`
+      : `<div class="dim">No party yet — recruit some locals below.</div>`);
+  if (members.length) $("btn-disband").onclick = () => act({ kind: "disband" });
+
+  const recruits = (snap?.occupants || []).filter(o => o.kind === "npc" && o.recruitable);
+  $("recruits").innerHTML = recruits.length
+    ? `<div class="dim" style="margin:.4rem 0 .2rem">Available to hire:</div>${recruits.map(o =>
+        `<button class="act recruit" data-id="${o.id}">+ ${o.name} <span class="dim">(${o.archetype || "?"})</span></button>`).join(" ")}`
+    : (members.length ? "" : `<div class="dim">No free hands here right now.</div>`);
+  for (const b of $("recruits").querySelectorAll("button.recruit")) {
+    b.onclick = () => act({ kind: "recruit", targetNpcId: b.dataset.id });
+  }
+}
+
+// Dungeon: only at a dungeon tile. Delve with your party — a turn-based, scaled
+// encounter; the leader keeps the loot. Renders the combat log + loot afterward.
+let lastCombat = null;
+function render_dungeon() {
+  const wrap = $("dungeon-wrap");
+  if (snap?.place?.type !== "dungeon") { wrap.style.display = "none"; return; }
+  wrap.style.display = "block";
+  const psize = 1 + (snap?.party?.members?.length || 0);
+  let html = `<div class="dim">You stand at the mouth of <b>${snap.place.name}</b> — danger ${snap.place.danger ?? "?"}.</div>` +
+    `<button class="act delve" id="btn-delve">⚔ Delve with your party of ${psize}</button>`;
+  if (lastCombat) html += render_combat(lastCombat);
+  $("dungeon-body").innerHTML = html;
+  $("btn-delve").onclick = delve;
+}
+function render_combat(c) {
+  const oc = c.outcome === "victory" ? "🏆 VICTORY" : c.outcome === "defeat" ? "💀 DEFEAT" : "⏳ TIMEOUT";
+  const survivors = (c.party || []).map(p => `${p.name}${p.alive ? "" : " ☠"}${p.fled ? " (fled)" : ""}`).join(", ");
+  const loot = (c.loot || []).length
+    ? c.loot.map(l => `<li>${l.fromBoss ? "👑 " : ""}<b>${l.item?.name || "loot"}</b> <span class="dim">${l.item?.rarity || ""}</span> → ${l.to}</li>`).join("")
+    : `<li class="dim">no loot</li>`;
+  const logLines = (c.log || []).map(e => {
+    if (e.kind === "dodge") return `<li class="dim">r${e.round} ${e.actor} → ${e.target}: dodged</li>`;
+    if (e.kind === "death") return `<li class="kill">r${e.round} ${e.target} falls!</li>`;
+    if (e.kind === "flee") return `<li class="dim">r${e.round} ${e.actor} flees the fight</li>`;
+    const tag = e.kind === "crit" ? "💥" : e.kind === "overload" ? "⚡" : "";
+    return `<li>r${e.round} ${e.actor} → ${e.target}: ${tag}${e.amount} <span class="dim">(${e.targetHp}hp)</span></li>`;
+  }).join("");
+  return `<div class="combat"><div class="combat-hd">${oc} · ${c.rounds} rounds · ${c.tile}</div>` +
+    `<div class="combat-party">Party: ${survivors}</div>` +
+    `<div class="combat-loot"><b>Loot</b><ul>${loot}</ul></div>` +
+    `<details><summary>Combat log (${(c.log || []).length} events)</summary><ul class="combat-log">${logLines}</ul></details></div>`;
+}
+async function delve() {
+  if (!token) return;
+  const b = $("btn-delve"); if (b) { b.disabled = true; b.textContent = "⚔ Delving…"; }
+  try {
+    const j = await (await fetch("/api/sigmacraft/delve", {
+      method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ token }),
+    })).json();
+    lastCombat = j.ok ? j : null;
+    if (!j.ok) $("pending").textContent = `delve: ${j.error || "failed"}`;
+  } catch { /* transient */ }
+  await refresh();
+}
+
+function render() {
+  $("hdr-meta").textContent = `realm ${snap?.realmId || "—"} · tick ${snap?.worldTick ?? 0}`;
+  $("scene-place").textContent = snap?.place?.name || "the wilds";
+  $("scene-flavor").textContent = snap?.place?.flavor || "";
+  const tb = $("scene-tier");
+  const ty = snap?.place?.type ? snap.place.type.toUpperCase() : "WILDS";
+  tb.textContent = snap?.place?.safe ? `${ty} · SAFE` : `${ty} · DANGER ${snap?.place?.danger ?? 1}`;
+  tb.style.background = snap?.place?.safe ? "rgba(127,196,165,.2)" : "rgba(215,116,116,.2)";
+  tb.style.color = snap?.place?.safe ? "var(--teal)" : "var(--danger)";
+  render_map();
+  render_side();
+}
+
+// ── small side-scroller: STATIC at rest, scrolls only while travelling.
+//    No other characters are drawn — it is the player's own first-person zone view.
+const cv = $("scene"), ctx = cv.getContext("2d");
+let scrollX = 0;
+function fit() {
+  const r = cv.parentElement.getBoundingClientRect();
+  cv.width = Math.max(280, r.width); cv.height = Math.max(120, r.height);
+}
+new ResizeObserver(fit).observe(cv.parentElement);
+fit();
+
+function drawScene(ts) {
+  const p = pal(), W = cv.width, H = cv.height, groundY = H * 0.78;
+  const traveling = !!snap?.pendingIntent;
+  if (traveling) scrollX += 3.2;             // motion ONLY while travelling
+  const sx = traveling ? scrollX : 0;        // at rest the scene is still
+
+  // sky
+  const g = ctx.createLinearGradient(0, 0, 0, H);
+  g.addColorStop(0, p.sky[0]); g.addColorStop(1, p.sky[1]);
+  ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+  // glow
+  ctx.save(); ctx.globalAlpha = .5;
+  const rg = ctx.createRadialGradient(W * 0.78, H * 0.2, 6, W * 0.78, H * 0.2, 110);
+  rg.addColorStop(0, p.glow); rg.addColorStop(1, "transparent");
+  ctx.fillStyle = rg; ctx.fillRect(0, 0, W, H); ctx.restore();
+  // parallax hills (frozen unless travelling)
+  for (let layer = 0; layer < 2; layer++) {
+    const off = (sx * (0.2 + layer * 0.3)) % (W + 200);
+    const baseY = groundY - 18 - layer * 20;
+    ctx.fillStyle = layer === 1 ? p.ground : p.hill; ctx.globalAlpha = 0.7 + layer * 0.2;
+    for (let bx = -200; bx < W + 200; bx += 200) {
+      const x = bx - off;
+      ctx.beginPath(); ctx.moveTo(x, H); ctx.lineTo(x, baseY);
+      ctx.quadraticCurveTo(x + 50, baseY - 34 - layer * 6, x + 100, baseY);
+      ctx.quadraticCurveTo(x + 150, baseY + 22, x + 200, baseY);
+      ctx.lineTo(x + 200, H); ctx.closePath(); ctx.fill();
+    }
+  }
+  ctx.globalAlpha = 1;
+  // static danger hint (fixed, faint, not "walking with you") — scaled by danger
+  const danger = snap?.place?.danger ?? 1;
+  if (danger >= 3) {
+    ctx.save(); ctx.globalAlpha = .14; ctx.fillStyle = "#000";
+    for (let i = 0; i < Math.min(2, danger - 2); i++) {
+      const ex = W * (0.62 + i * 0.16);
+      ctx.beginPath(); ctx.ellipse(ex, groundY - 6, 7, 12, 0, 0, 7); ctx.fill();
+    }
+    ctx.restore();
+  }
+  // ground
+  ctx.fillStyle = p.ground; ctx.fillRect(0, groundY, W, H - groundY);
+  // the player only — gentle idle bob (breathing), no travel unless pending
+  const bob = Math.sin(ts / 520) * 1.8;
+  const px = W * 0.22, py = groundY + bob, scale = 1.0, h = 42 * scale;
+  ctx.save(); ctx.translate(px, py);
+  ctx.fillStyle = "rgba(0,0,0,.35)"; ctx.beginPath(); ctx.ellipse(0, 3, 12, 3.5, 0, 0, 7); ctx.fill();
+  ctx.fillStyle = "#e7eee9";
+  ctx.beginPath(); ctx.moveTo(-9, 0); ctx.lineTo(9, 0); ctx.lineTo(6, -h * .7); ctx.lineTo(-6, -h * .7); ctx.closePath(); ctx.fill();
+  ctx.beginPath(); ctx.arc(0, -h * .82, 6, 0, 7); ctx.fill();
+  ctx.fillStyle = "rgba(236,242,237,.85)"; ctx.font = "10px system-ui"; ctx.textAlign = "center";
+  ctx.fillText("You", 0, -h - 5);
+  ctx.restore();
+}
+function frame(ts) { drawScene(ts); requestAnimationFrame(frame); }
+requestAnimationFrame(frame);
+
+boot();
+</script>
+</body>
+</html>
