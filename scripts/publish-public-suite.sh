@@ -8,9 +8,11 @@ SUITE_BRANCH="${SUITE_BRANCH:-main}"
 MMO_REPO="${MMO_REPO:-sigmashakeinc/sigmashake-mmo}"
 ABYSS_REPO="${ABYSS_REPO:-sigmashakeinc/sigmashake-abyss}"
 VCS_REPO="${VCS_REPO:-sigmashakeinc/sigmashake-vcs}"
+OBS_CHAT_OVERLAY_REPO="${OBS_CHAT_OVERLAY_REPO:-sigmashakeinc/sigmashake-obs-chat-overlay}"
 MMO_BRANCH="${MMO_BRANCH:-main}"
 ABYSS_BRANCH="${ABYSS_BRANCH:-main}"
 VCS_BRANCH="${VCS_BRANCH:-main}"
+OBS_CHAT_OVERLAY_BRANCH="${OBS_CHAT_OVERLAY_BRANCH:-main}"
 CONFIRM=0
 EVIDENCE_FILE=""
 WRITE_EVIDENCE_FILE=""
@@ -20,6 +22,7 @@ STAGED_FILES=0
 MMO_SHA=""
 ABYSS_SHA=""
 VCS_SHA=""
+OBS_CHAT_OVERLAY_SHA=""
 
 usage() {
   cat <<'EOF'
@@ -32,6 +35,11 @@ Environment:
   MMO_REPO       component owner/repo, default sigmashakeinc/sigmashake-mmo
   ABYSS_REPO     component owner/repo, default sigmashakeinc/sigmashake-abyss
   VCS_REPO       component owner/repo, default sigmashakeinc/sigmashake-vcs
+  OBS_CHAT_OVERLAY_REPO component owner/repo, default sigmashakeinc/sigmashake-obs-chat-overlay
+  MMO_BRANCH     component branch, default main
+  ABYSS_BRANCH   component branch, default main
+  VCS_BRANCH     component branch, default main
+  OBS_CHAT_OVERLAY_BRANCH component branch, default main
 EOF
 }
 
@@ -102,6 +110,7 @@ write_release_evidence() {
     echo "mmo_sha=$MMO_SHA"
     echo "abyss_sha=$ABYSS_SHA"
     echo "vcs_sha=$VCS_SHA"
+    echo "obs_chat_overlay_sha=$OBS_CHAT_OVERLAY_SHA"
     echo "dry_run=passed"
     echo "scan=passed"
     echo "staged_files=$STAGED_FILES"
@@ -127,6 +136,7 @@ require_release_evidence() {
     "mmo_sha=$MMO_SHA" \
     "abyss_sha=$ABYSS_SHA" \
     "vcs_sha=$VCS_SHA" \
+    "obs_chat_overlay_sha=$OBS_CHAT_OVERLAY_SHA" \
     "dry_run=passed" \
     "scan=passed" \
     "suite_preflight=passed" \
@@ -147,6 +157,11 @@ copy_scaffold() {
     --exclude='node_modules/' \
     --exclude='dist/' \
     --exclude='.wrangler/' \
+    --exclude='graphify-out/' \
+    --exclude='.last-audit-result' \
+    --exclude='.last-test-result*' \
+    --exclude='.last-test-report-*.json' \
+    --exclude='.test-history-*.jsonl' \
     --exclude='tmp/' \
     "$SRC_DIR/" "$STAGE/"
 }
@@ -163,6 +178,7 @@ clone_component() {
     mmo) MMO_SHA="$(git -C "$clone" rev-parse HEAD)" ;;
     abyss) ABYSS_SHA="$(git -C "$clone" rev-parse HEAD)" ;;
     vcs) VCS_SHA="$(git -C "$clone" rev-parse HEAD)" ;;
+    obs-chat-overlay) OBS_CHAT_OVERLAY_SHA="$(git -C "$clone" rev-parse HEAD)" ;;
   esac
   rm -rf "$clone/.git"
   mkdir -p "$dest"
@@ -179,15 +195,7 @@ Generated from public component mirrors.
 - mmo: https://github.com/$MMO_REPO @ $MMO_SHA
 - abyss: https://github.com/$ABYSS_REPO @ $ABYSS_SHA
 - vcs: https://github.com/$VCS_REPO @ $VCS_SHA
-
-The component directories are generated snapshots. Send service code,
-contracts, tests, and component docs to the component mirror listed above,
-then regenerate this suite from the accepted mirror commits.
-
-Suite PRs may update this generated provenance file, root docs, scaffold,
-configuration, and host automation. Direct edits under services/mmo,
-services/abyss, or services/vcs are rejected by the host review policy unless
-a maintainer explicitly runs a non-merge manual override.
+- obs-chat-overlay: https://github.com/$OBS_CHAT_OVERLAY_REPO @ $OBS_CHAT_OVERLAY_SHA
 EOF
 }
 
@@ -200,12 +208,36 @@ scan_regex() {
   fi
 }
 
+scan_obs_chat_overlay_runtime_paths() {
+  local obs_root="$STAGE/services/obs-chat-overlay"
+  [ -d "$obs_root" ] || return 0
+
+  for path in data runtime state logs chat-logs recordings captures screenshots obs-config obs-studio scene-collections profiles; do
+    if [ -e "$obs_root/$path" ]; then
+      echo "[publish-public-suite] ABORT: staged tree contains OBS chat overlay runtime/config path: services/obs-chat-overlay/$path" >&2
+      exit 1
+    fi
+  done
+
+  if find "$obs_root" \
+    \( -name 'global.ini' \
+      -o -name 'service.json' \
+      -o -name 'obs-websocket*.json' \
+      -o -name 'scene-collection*.json' \
+    \) -print -quit | grep -q .; then
+    echo "[publish-public-suite] ABORT: staged tree contains OBS chat overlay runtime config artifact" >&2
+    exit 1
+  fi
+}
+
 scan_stage() {
   scan_regex "local operator path" '/home/[A-Za-z0-9_.-]+'
   scan_regex "private key material" 'BEGIN [A-Z ]*PRIVATE KEY'
   scan_regex "AWS access key" 'AKIA[0-9A-Z]{16}'
-  scan_regex "HMAC/OBS/Wrangler secret assignment" '(VCS_HMAC_KEY|MMO_HMAC_KEY|OBS_WS_PASSWORD|WRANGLER_API_TOKEN)=[A-Za-z0-9_./+=:-]{20,}'
+  scan_regex "HMAC/OBS/Wrangler secret assignment" '(VCS_HMAC_KEY|MMO_HMAC_KEY|OBS_WS_PASSWORD|OBS_WEBSOCKET_PASSWORD|OBS_CHAT_HMAC_KEY|OBS_CHAT_OVERLAY_HMAC_KEY|OBS_CHAT_OVERLAY_SECRET|TWITCH_(CLIENT_SECRET|OAUTH_TOKEN|IRC_TOKEN|BOT_TOKEN|CHAT_TOKEN)|YOUTUBE_(API_KEY|CLIENT_SECRET|REFRESH_TOKEN|ACCESS_TOKEN)|DISCORD_WEBHOOK_URL|STREAM_KEY|RTMP_URL|WRANGLER_API_TOKEN)=[A-Za-z0-9_./+=:-]{20,}'
+  scan_regex "OBS/chat runtime config secret field" '"?(streamKey|stream_key|oauthToken|oauth_token|chatToken|chat_token|obsWebSocketPassword|obs_ws_password)"?[[:space:]]*[:=][[:space:]]*"?[A-Za-z0-9_./+=:-]{20,}'
   scan_regex "runtime public tunnel URL" 'https://[A-Za-z0-9.-]+\.trycloudflare\.com'
+  scan_obs_chat_overlay_runtime_paths
   if [ -e "$STAGE/services/mmo/data" ]; then
     echo "[publish-public-suite] ABORT: staged tree contains MMO runtime data" >&2
     exit 1
@@ -221,7 +253,7 @@ scan_stage() {
 publish_stage() {
   command -v gh >/dev/null 2>&1 || { echo "gh is required for --confirm" >&2; exit 1; }
   if ! gh repo view "$SUITE_REPO" >/dev/null 2>&1; then
-    gh repo create "$SUITE_REPO" --public --description "Public SigmaShake MMO, Abyss, and VCS suite"
+    gh repo create "$SUITE_REPO" --public --description "Public SigmaShake MMO, Abyss, VCS, and OBS Chat Overlay suite"
   fi
 
   cd "$STAGE"
@@ -256,6 +288,7 @@ copy_scaffold
 clone_component "mmo" "$MMO_REPO" "$MMO_BRANCH"
 clone_component "abyss" "$ABYSS_REPO" "$ABYSS_BRANCH"
 clone_component "vcs" "$VCS_REPO" "$VCS_BRANCH"
+clone_component "obs-chat-overlay" "$OBS_CHAT_OVERLAY_REPO" "$OBS_CHAT_OVERLAY_BRANCH"
 write_services_readme
 scan_stage
 
@@ -267,6 +300,7 @@ echo "[publish-public-suite] component SHAs:"
 echo "  mmo=$MMO_SHA"
 echo "  abyss=$ABYSS_SHA"
 echo "  vcs=$VCS_SHA"
+echo "  obs-chat-overlay=$OBS_CHAT_OVERLAY_SHA"
 write_release_evidence
 
 if [ "$CONFIRM" -eq 1 ]; then

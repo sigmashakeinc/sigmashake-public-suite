@@ -1,0 +1,37 @@
+{
+  "name": "sigmashake-obs-chat-overlay",
+  "version": "0.1.0",
+  "private": false,
+  "description": "Public OBS chat overlay UI and local verification harness.",
+  "type": "module",
+  "scripts": {
+    "dev": "node tools/server.mjs",
+    "deploy": "node tools/deploy-local.mjs",
+    "verify:deploy": "node tools/verify-deploy.mjs",
+    "typecheck": "node --check tools/gate.mjs && node --check tools/server.mjs && node --check tools/deploy-local.mjs && node --check tools/verify-deploy.mjs",
+    "lint": "node tools/gate.mjs lint",
+    "test": "bun test",
+    "test:unit": "bun test",
+    "test:api": "node tools/gate.mjs api",
+    "test:component": "node tools/gate.mjs component",
+    "test:integration": "node tools/gate.mjs integration",
+    "test:e2e": "node tools/gate.mjs e2e",
+    "test:regression": "bun test",
+    "test:configuration": "node tools/gate.mjs configuration",
+    "test:audit": "node tools/gate.mjs dependencies",
+    "test:sast": "node tools/gate.mjs sast",
+    "test:dast": "node tools/gate.mjs dast",
+    "test:pen": "node tools/gate.mjs penetration",
+    "test:load": "node tools/gate.mjs load",
+    "test:stress": "node tools/gate.mjs stress",
+    "test:spike": "node tools/gate.mjs spike",
+    "test:soak": "node tools/gate.mjs soak",
+    "test:scale": "node tools/gate.mjs scalability",
+    "test:chaos": "node tools/gate.mjs chaos",
+    "test:failover": "node tools/gate.mjs failover"
+  },
+  "engines": {
+    "node": ">=20",
+    "bun": ">=1.1"
+  }
+}

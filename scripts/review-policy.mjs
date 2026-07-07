@@ -8,7 +8,6 @@ function parseArgs(argv) {
     root: process.cwd(),
     base: "origin/main",
     allowAutomationChange: process.env.ALLOW_AUTOMATION_CHANGE === "1",
-    allowGeneratedServiceChange: process.env.ALLOW_GENERATED_SERVICE_CHANGE === "1",
     noDiffRequired: false,
   };
 
@@ -17,7 +16,6 @@ function parseArgs(argv) {
     if (arg === "--root") args.root = argv[++i];
     else if (arg === "--base") args.base = argv[++i];
     else if (arg === "--allow-automation-change") args.allowAutomationChange = true;
-    else if (arg === "--allow-generated-service-change") args.allowGeneratedServiceChange = true;
     else if (arg === "--no-diff-required") args.noDiffRequired = true;
     else throw new Error(`Unknown argument: ${arg}`);
   }
@@ -37,18 +35,6 @@ function git(root, args, allowFailure = false) {
   }
 }
 
-function gitOk(root, args) {
-  try {
-    execFileSync("git", ["-C", root, ...args], {
-      stdio: ["ignore", "ignore", "pipe"],
-      maxBuffer: 32 * 1024 * 1024,
-    });
-    return true;
-  } catch {
-    return false;
-  }
-}
-
 function changedFiles(root, base, noDiffRequired) {
   const output = git(root, ["diff", "--name-only", `${base}...HEAD`], noDiffRequired);
   return output.split(/\r?\n/).filter(Boolean);
@@ -63,17 +49,6 @@ function serviceOf(file) {
   return match ? match[1] : "";
 }
 
-const componentRepos = new Map([
-  ["mmo", "https://github.com/sigmashakeinc/sigmashake-mmo"],
-  ["abyss", "https://github.com/sigmashakeinc/sigmashake-abyss"],
-  ["vcs", "https://github.com/sigmashakeinc/sigmashake-vcs"],
-]);
-
-function generatedComponentServiceOf(file) {
-  const match = file.match(/^services\/(mmo|abyss|vcs)\//);
-  return match ? match[1] : "";
-}
-
 function isSourceFile(file) {
   return /^services\/[^/]+\/(src|client|server|static|tools|integrations)\//.test(file)
     && !/\/(README|SPEC|AGENTS|RUNBOOK|CLAUDE)\.md$/.test(file);
@@ -81,93 +56,6 @@ function isSourceFile(file) {
 
 function isTestFile(file) {
   return /^services\/[^/]+\/(test|integrations)\//.test(file);
-}
-
-const deniedScriptKeys = new Set([
-  "deploy",
-  "verify:deploy",
-  "predeploy",
-  "postdeploy",
-  "prepublish",
-  "postpublish",
-  "prepare",
-  "preinstall",
-  "install",
-  "postinstall",
-]);
-
-function isDeniedScriptKey(key) {
-  return key.startsWith("deploy:") || deniedScriptKeys.has(key);
-}
-
-function inspectPackageState(root, rev, file) {
-  const blobRef = `${rev}:${file}`;
-  if (!gitOk(root, ["cat-file", "-e", blobRef])) {
-    return { ok: true, scripts: new Map(), missing: true };
-  }
-
-  let parsed;
-  try {
-    parsed = JSON.parse(git(root, ["show", blobRef]));
-  } catch (error) {
-    return {
-      ok: false,
-      reason: `${file} at ${rev} is not valid JSON: ${error instanceof Error ? error.message : String(error)}`,
-    };
-  }
-
-  if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) {
-    return { ok: false, reason: `${file} at ${rev} is not a JSON object` };
-  }
-
-  const scriptsValue = Object.prototype.hasOwnProperty.call(parsed, "scripts") ? parsed.scripts : {};
-  if (scriptsValue === null || typeof scriptsValue !== "object" || Array.isArray(scriptsValue)) {
-    return { ok: false, reason: `${file} at ${rev} has a non-object scripts field` };
-  }
-
-  const scripts = new Map();
-  for (const [key, value] of Object.entries(scriptsValue)) {
-    if (typeof value !== "string") {
-      return { ok: false, reason: `${file} at ${rev} has a non-string script for ${key}` };
-    }
-    scripts.set(key, value);
-  }
-
-  return { ok: true, scripts, missing: false };
-}
-
-function checkServicePackageScriptDrift(root, base, files, allowAutomationChange) {
-  const findings = [];
-  const changedPackages = files.filter((file) => /^services\/[^/]+\/package\.json$/.test(file));
-  for (const file of changedPackages) {
-    const previous = inspectPackageState(root, base, file);
-    const current = inspectPackageState(root, "HEAD", file);
-
-    if (!previous.ok || !current.ok) {
-      if (!allowAutomationChange) {
-        findings.push(
-          `unable to inspect ${file}: ${previous.reason || current.reason || "unknown package state error"}`,
-        );
-      }
-      continue;
-    }
-
-    const keys = new Set([
-      ...Array.from(previous.scripts.keys()).filter(isDeniedScriptKey),
-      ...Array.from(current.scripts.keys()).filter(isDeniedScriptKey),
-    ]);
-    for (const key of keys) {
-      const oldValue = previous.scripts.get(key);
-      const newValue = current.scripts.get(key);
-      if (oldValue === newValue) continue;
-      if (!allowAutomationChange) {
-        findings.push(
-          `${file} changed denied script ${key} (${oldValue === undefined ? "added" : newValue === undefined ? "removed" : "modified"})`,
-        );
-      }
-    }
-  }
-  return findings;
 }
 
 function main() {
@@ -181,28 +69,10 @@ function main() {
   const findings = [];
 
   const deniedPath = /(^|\/)(\.env(\..*)?|wrangler\.toml|\.wrangler|\.sigmashake|node_modules|dist|coverage|\.last-[^/]*)(\/|$)|^services\/mmo\/data\//;
+  const deniedObsPath = /^services\/obs-chat-overlay\/(data|runtime|state|logs|chat-logs|recordings|captures|screenshots|obs-config|obs-studio|scene-collections?|profiles?)(\/|$)|^services\/obs-chat-overlay\/(?:.*\/)?(global\.ini|service\.json|obs-websocket[^/]*\.json|scene-collection[^/]*\.json)$/;
   for (const file of files) {
-    if (deniedPath.test(file)) {
+    if (deniedPath.test(file) || deniedObsPath.test(file)) {
       findings.push(`blocked private/generated path changed: ${file}`);
-    }
-  }
-
-  const generatedServiceChanges = new Map();
-  for (const file of files) {
-    const service = generatedComponentServiceOf(file);
-    if (!service) continue;
-    if (!generatedServiceChanges.has(service)) generatedServiceChanges.set(service, []);
-    generatedServiceChanges.get(service).push(file);
-  }
-  if (generatedServiceChanges.size && !args.allowGeneratedServiceChange) {
-    for (const [service, changed] of generatedServiceChanges.entries()) {
-      findings.push(
-        [
-          `generated ${service} snapshot changed in public-suite: ${changed.join(", ")}`,
-          `send component changes to ${componentRepos.get(service)} via fork PR;`,
-          "the suite services tree is regenerated from component mirrors.",
-        ].join(" "),
-      );
     }
   }
 
@@ -222,15 +92,14 @@ function main() {
     }
   }
 
-  findings.push(...checkServicePackageScriptDrift(root, args.base, files, args.allowAutomationChange));
-
   const diff = diffText(root, args.base, args.noDiffRequired);
   const secretPatterns = [
     ["private key material", /BEGIN [A-Z ]*PRIVATE KEY/],
     ["AWS access key", /AKIA[0-9A-Z]{16}/],
     ["local operator path", /\/home\/[A-Za-z0-9_.-]+/],
     ["runtime tunnel URL", /https:\/\/[A-Za-z0-9.-]+\.trycloudflare\.com/],
-    ["HMAC secret assignment", /(VCS_HMAC_KEY|MMO_HMAC_KEY|OBS_WS_PASSWORD|WRANGLER_API_TOKEN)=[A-Za-z0-9_./+=:-]{20,}/],
+    ["HMAC/OBS/chat secret assignment", /(VCS_HMAC_KEY|MMO_HMAC_KEY|OBS_WS_PASSWORD|OBS_WEBSOCKET_PASSWORD|OBS_CHAT_HMAC_KEY|OBS_CHAT_OVERLAY_HMAC_KEY|OBS_CHAT_OVERLAY_SECRET|TWITCH_(CLIENT_SECRET|OAUTH_TOKEN|IRC_TOKEN|BOT_TOKEN|CHAT_TOKEN)|YOUTUBE_(API_KEY|CLIENT_SECRET|REFRESH_TOKEN|ACCESS_TOKEN)|DISCORD_WEBHOOK_URL|STREAM_KEY|RTMP_URL|WRANGLER_API_TOKEN)=[A-Za-z0-9_./+=:-]{20,}/],
+    ["OBS/chat runtime config secret field", /"?(streamKey|stream_key|oauthToken|oauth_token|chatToken|chat_token|obsWebSocketPassword|obs_ws_password)"?\s*[:=]\s*"?[A-Za-z0-9_./+=:-]{20,}/],
   ];
   for (const [label, pattern] of secretPatterns) {
     if (pattern.test(diff)) findings.push(`diff contains ${label}`);

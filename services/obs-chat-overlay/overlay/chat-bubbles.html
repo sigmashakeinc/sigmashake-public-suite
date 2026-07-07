@@ -1,0 +1,931 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Chat Bubbles</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  width: 100%;
+  height: 100%;
+  background: transparent;
+  overflow: hidden;
+}
+
+body {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  padding: 6px 8px;
+}
+
+/* ───── Chat box (iMessage incoming style) ───── */
+.chat-box {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  align-items: flex-start;
+  gap: 4px;
+  overflow: hidden;
+}
+
+.chat-line {
+  opacity: 0;
+  transform: translateY(4px);
+  transition: opacity 240ms ease, transform 240ms ease;
+  width: fit-content;
+  max-width: 88%;
+  padding: 6px 11px;
+  border-radius: 22px 22px 22px 6px;
+  background: #e9e9eb;
+  color: #1a1a1a;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-size: 22px;
+  line-height: 1.2;
+  word-wrap: break-word;
+  overflow-wrap: anywhere;
+}
+
+.chat-line .chat-author,
+.chat-line .chat-text {
+  width: max-content;
+  max-width: 100%;
+  display: block;
+}
+
+.chat-line.chat-shown {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.chat-line.chat-fading {
+  opacity: 0.25;
+}
+
+.chat-author {
+  display: block;
+  font-size: 14px;
+  font-weight: 600;
+  color: #6b6b70;
+  margin-bottom: 2px;
+  width: max-content;
+  max-width: 100%;
+}
+
+.chat-platform-dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  vertical-align: middle;
+  margin-right: 4px;
+  background: #8e8e93;
+}
+
+.chat-platform-dot.twitch  { background: #9146ff; }
+.chat-platform-dot.youtube { background: #ff0000; }
+.chat-platform-dot.kick    { background: #53fc18; }
+.chat-platform-dot.discord { background: #5865f2; }
+.chat-platform-dot.relay   { background: #d4af37; }
+.chat-platform-dot.chat    { background: #8e8e93; }
+.chat-platform-dot.navi    { background: #ffffff; }
+.chat-platform-dot.voice   { background: #34c759; }
+
+/* ───── iMessage outgoing (Navi's replies) ───── */
+.chat-line.chat-navi {
+  align-self: flex-end;
+  background: linear-gradient(180deg, #1f8aff 0%, #0a7cff 100%);
+  color: #ffffff;
+  border-radius: 22px 22px 6px 22px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+}
+
+.chat-line.chat-navi .chat-author {
+  display: none;
+}
+
+.chat-line.chat-voice .chat-author {
+  color: #34c759;
+}
+
+.chat-text {
+  color: inherit;
+}
+
+.chat-emote {
+  display: inline-block;
+  vertical-align: -6px;
+  height: 28px;
+  width: auto;
+  margin: 0 1px;
+}
+
+.chat-emote-stack {
+  position: relative;
+  display: inline-block;
+  vertical-align: -6px;
+  line-height: 0;
+  margin: 0 1px;
+  isolation: isolate;
+}
+
+.chat-emote-stack > .chat-emote {
+  display: block;
+  vertical-align: top;
+  margin: 0;
+}
+
+.chat-emote-stack > .chat-emote:not(.chat-emote-overlay) {
+  position: relative;
+  z-index: 1;
+}
+
+.chat-emote-overlay {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* ───── Big emotes ─────
+   A message that is ONLY emotes (plus whitespace) renders each emote at 5× the
+   inline size in a left-aligned grid capped at 3 columns: three emotes sit on
+   one row, a fourth wraps beneath. Mixed text+emote messages keep the inline
+   .chat-emote size above. */
+:root {
+  --emote-big: 140px; /* 5× the 28px inline emote */
+  --emote-big-wide: calc(var(--emote-big) + var(--emote-big) + var(--emote-big) + 12px);
+}
+
+.chat-line.chat-emote-only {
+  padding: 8px;
+}
+
+.chat-line.chat-single-emote {
+  position: fixed;
+  top: 0;
+  left: 50%;
+  z-index: 2;
+  transform: translate(-50%, 4px);
+  max-width: 100%;
+  padding: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.chat-line.chat-single-emote.chat-shown {
+  transform: translate(-50%, 0);
+}
+
+.chat-line.chat-single-emote .chat-author {
+  display: none;
+}
+
+.chat-line.chat-single-emote .chat-text {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: fit-content;
+  max-width: 100%;
+  text-align: center;
+}
+
+.chat-line.chat-single-emote .chat-emote-grid {
+  justify-content: center;
+  justify-items: center;
+}
+
+.chat-emote-grid {
+  display: grid;
+  gap: 6px;
+  justify-content: start;
+  justify-items: center;
+  align-items: center;
+  /* grid-template-columns (the ≤3 column count) is set per-message in JS. */
+}
+
+.chat-emote-grid .chat-emote-big {
+  width: var(--emote-big);
+  height: var(--emote-big);
+  object-fit: contain; /* keep aspect ratio for non-square (wide) emotes */
+  display: block;
+}
+
+.chat-emote-big-stack {
+  position: relative;
+  width: var(--emote-big);
+  height: var(--emote-big);
+  line-height: 0;
+  isolation: isolate;
+}
+
+.chat-emote-big-wide-stack {
+  grid-column: span 3;
+  width: var(--emote-big-wide);
+  height: var(--emote-big);
+}
+
+.chat-emote-grid .chat-emote-big-wide {
+  width: var(--emote-big-wide);
+  height: var(--emote-big);
+}
+
+.chat-emote-big-stack > .chat-emote-big:not(.chat-emote-overlay) {
+  position: relative;
+  z-index: 1;
+}
+
+.chat-emote-grid .chat-emote-fallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--emote-big);
+  height: var(--emote-big);
+  font-size: 34px;
+  font-weight: 600;
+}
+
+/* ───── Sigil chip (per-chatter identity avatar) ───── */
+.chat-sigil {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  font-size: 9px;
+  font-weight: 700;
+  color: #ffffff;
+  vertical-align: middle;
+  margin-right: 4px;
+  flex-shrink: 0;
+  line-height: 1;
+  letter-spacing: -0.02em;
+}
+
+/* ───── Tier badge ───── */
+.chat-tier-badge {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 500;
+  color: #8e8e93;
+  margin-left: 5px;
+  vertical-align: middle;
+  opacity: 0.85;
+  white-space: nowrap;
+}
+
+.chat-role-badge {
+  display: inline-flex;
+  align-items: center;
+  height: 15px;
+  padding: 0 4px;
+  margin-left: 4px;
+  border-radius: 4px;
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 1;
+  color: #ffffff;
+  background: #6b7280;
+  vertical-align: middle;
+  white-space: nowrap;
+}
+
+.chat-role-badge.owner { background: #111827; }
+.chat-role-badge.mod { background: #059669; }
+.chat-role-badge.vip { background: #8b5cf6; }
+.chat-role-badge.earned { background: #2563eb; }
+.chat-role-badge.gift { background: #db2777; }
+.chat-role-badge.sub { background: #0d9488; }
+</style>
+</head>
+<body>
+<ul id="chat-box" class="chat-box"></ul>
+
+<script>
+// ── Shrink-wrap: tightens bubble to its widest wrapped line + padding ──
+function shrinkWrap(el, mx) {
+  if (!el) return;
+  el.style.width = "";
+  if (mx) el.style.maxWidth = `${mx}px`;
+  var rng = document.createRange();
+  var widest = 0;
+  var kids = el.children;
+  for (var i = 0; i < kids.length; i++) {
+    try { rng.selectNodeContents(kids[i]); } catch (_e) { continue; }
+    var rects = rng.getClientRects();
+    for (var j = 0; j < rects.length; j++) {
+      if (rects[j].width > widest) widest = rects[j].width;
+    }
+  }
+  if (widest <= 0) return;
+  var cs = getComputedStyle(el);
+  var pad = (parseFloat(cs.paddingLeft) || 0) + (parseFloat(cs.paddingRight) || 0);
+  el.style.width = `${Math.ceil(widest + pad)}px`;
+}
+
+// ── Chat rendering ──
+const chatBox = document.getElementById("chat-box");
+const CHAT_MAX = 8;
+const CHAT_FADE_MS = 22000;
+const CHAT_TEXT_FADE_MS = 36000;
+// Widened (was 340) so long messages wrap across more of the enlarged box
+// before stacking — fewer wrapped lines, less vertical clipping.
+const CHAT_BUBBLE_MAX_PX = 460;
+
+// Emote-only messages render their emotes BIG (5× inline) in a ≤3-column grid.
+// Cap the count so a hype spam of 30 emotes can't grow a single bubble past the
+// overlay — the first 9 (a full 3×3) still read the moment clearly.
+const BIG_EMOTE_MAX = 9;
+const BIG_EMOTE_WIDE_ASPECT = 1.8;
+const BIG_EMOTE_WIDE_COLUMNS = 3;
+
+// ── Duplicate suppression (incl. cross-platform) ────────────────────────────
+// The unified feed can deliver the same message more than once. Two shapes:
+//   1. Same-source dupes — a leaked YouTube poller, a re-seek backlog replay, or
+//      two producers fanning the same line onto chat_incoming upstream. Same
+//      author + same text.
+//   2. Cross-platform dupes — one logical message multicast natively to Twitch +
+//      YouTube + Kick and read back by each platform's own reader. When that
+//      message is the BROADCASTER's (a go-live "YOOOOOO" hype line, a periodic
+//      promo), each platform carries it under a DIFFERENT bot identity
+//      ("SigmaShake" on Twitch, "SigmaShakeInc" on Kick), so author+text can't
+//      collapse it — you get one bubble per platform. (Bridge-relayed copies
+//      arrive as "[Twitch] alice: …" and are dropped earlier by isBridgeEcho;
+//      this only sees native cross-posts.)
+//
+// So we run two gates, both keyed on content (not the upstream ts_ms, so copies
+// with slightly different timestamps still collapse):
+//   • exact author|text — catches shape (1) and a single platform's re-sends.
+//   • text-only across a DIFFERENT source — catches shape (2) regardless of the
+//     per-platform identity, while two different chatters on the SAME platform
+//     (distinct authors, same source) are left alone and both render.
+// The window must cover a bubble's full on-screen life (CHAT_TEXT_FADE_MS) — a 10s
+// window was shorter than the 22s fade, so a copy arriving 10–22s later (a
+// polled YouTube re-list, a slow cross-platform relay) reappeared underneath the
+// still-visible original. Sized just past the fade so nothing duplicates while
+// the first copy is on screen.
+const DEDUP_TTL_MS = CHAT_TEXT_FADE_MS + 3000;
+const _recentChat = new Map(); // "author|text" -> last-seen epoch ms (exact, same-source)
+const _recentText = new Map(); // "text" -> { ts, source } (cross-platform collapse)
+
+function isDuplicateChat({ text, author, source }) {
+  const now = Date.now();
+  const norm = String(text).trim();
+  const src = source || "chat";
+
+  const exactKey = `${(author || "").toLowerCase()}|${norm}`;
+  const lastExact = _recentChat.get(exactKey);
+  const exactDup = lastExact !== undefined && now - lastExact <= DEDUP_TTL_MS;
+
+  // Same text seen from a different platform inside the window = a native
+  // cross-post of one logical message under another identity.
+  const lastText = _recentText.get(norm);
+  const crossDup =
+    lastText !== undefined && now - lastText.ts <= DEDUP_TTL_MS && lastText.source !== src;
+
+  _recentChat.set(exactKey, now);
+  _recentText.set(norm, { ts: now, source: src });
+
+  // Prune lazily so the maps can't grow unbounded over a long stream.
+  if (_recentChat.size > 256 || _recentText.size > 256) {
+    for (const [k, ts] of _recentChat) if (now - ts > DEDUP_TTL_MS) _recentChat.delete(k);
+    for (const [k, v] of _recentText) if (now - v.ts > DEDUP_TTL_MS) _recentText.delete(k);
+  }
+
+  return exactDup || crossDup;
+}
+
+// ── Bridge-echo suppression ─────────────────────────────────────────────────
+// The cross-platform bridge relays a viewer's message to the OTHER platforms,
+// re-posting it as "[Twitch] alice: hello" (origin label + author + ": " +
+// text — see Chat.Bridge.Worker.forward/3). Each destination platform's chat
+// reader then reads that relayed line back and re-injects it onto the unified
+// feed as a fresh message, so one viewer line reappears once per platform it
+// was mirrored to. The native original always reaches the overlay through its
+// own platform reader, so the relayed copies are pure redundancy with a
+// different (bot) author and prefixed text — the content dedup above can't
+// collapse them. Drop anything in the relay's "[Origin] name: …" shape outright.
+// Mirrors the bridge's own @prefix_re anti-loop guard (twitch|youtube|navi),
+// plus kick/chat which its forward labels emit but that regex omits.
+const BRIDGE_ECHO_RE = /^\s*\[(?:twitch|youtube|kick|navi|chat)\]\s+[^\n:]{1,80}:\s/i;
+
+function isBridgeEcho(text) {
+  return BRIDGE_ECHO_RE.test(String(text));
+}
+
+const _esc = s => String(s).replace(/[&<>"']/g, c =>
+  ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])
+);
+
+const _YOUTUBE_THUMBNAIL_HOSTS = new Set([
+  "yt3.ggpht.com",
+  "yt4.ggpht.com",
+  "lh3.googleusercontent.com",
+  "www.gstatic.com",
+]);
+
+function isYoutubeThumbnailHost(hostname) {
+  const host = String(hostname).toLowerCase();
+  return (
+    _YOUTUBE_THUMBNAIL_HOSTS.has(host) ||
+    (host.endsWith(".googleusercontent.com") && host !== "googleusercontent.com") ||
+    (host.endsWith(".gstatic.com") && host !== "gstatic.com")
+  );
+}
+
+function normalizeYoutubeThumbnailUrl(rawUrl) {
+  if (!rawUrl) return null;
+  try {
+    const url = new URL(rawUrl);
+    if (url.protocol !== "https:") return null;
+    if (url.username || url.password) return null;
+    if (!isYoutubeThumbnailHost(url.hostname)) return null;
+    return url.toString();
+  } catch {
+    return null;
+  }
+}
+
+// `big` selects the largest CDN variant each provider offers so a 5×-scaled
+// emote stays crisp instead of upscaling the 2× asset. Default (inline) keeps
+// the original 2× sizes.
+function emoteUrl(provider, id, big, metadataUrl) {
+  switch (provider) {
+    case "twitch":    return `https://static-cdn.jtvnw.net/emoticons/v2/${id}/default/dark/${big ? "3.0" : "2.0"}`;
+    case "7tv":       return `https://cdn.7tv.app/emote/${id}/${big ? "4x" : "2x"}.webp`;
+    case "bttv":      return `https://cdn.betterttv.net/emote/${id}/${big ? "3x" : "2x"}.webp`;
+    case "ffz":       return `https://cdn.frankerfacez.com/emoticon/${id}/${big ? "4" : "2"}`;
+    case "youtube":   return normalizeYoutubeThumbnailUrl(metadataUrl);
+    case "cheermote": {
+      const [prefix, tier] = String(id).split(":");
+      if (!prefix || !tier) return null;
+      return `https://d3aqoihi2n8ty8.cloudfront.net/actions/${prefix}/dark/animated/${tier}/${big ? "4" : "2"}.gif`;
+    }
+    default: return null;
+  }
+}
+
+// Local-first emote URL: returns a same-origin relative path to the overlay
+// server's emote cache for every locally-served provider.  Returns null for
+// cheermote (CDN-only) and unknown providers so callers fall back to emoteUrl().
+// Mirrors src/lib/emote-url.ts localEmoteUrl() — kept in sync by hand (inline
+// JS cannot import TypeScript modules).
+const _LOCAL_EMOTE_PROVIDERS = new Set(["twitch","7tv","bttv","ffz","youtube"]);
+function localEmoteUrl(provider, id) {
+  if (!_LOCAL_EMOTE_PROVIDERS.has(provider)) return null;
+  if (!id) return null;
+  return "/emote/" + provider + "/" + encodeURIComponent(id) + ".png";
+}
+
+// True when the message is nothing but emotes and whitespace — i.e. every text
+// segment is blank and at least one emote resolves to a real CDN URL. These get
+// the big-grid treatment; anything with actual words renders inline below.
+function isEmoteOnlyMessage(segs) {
+  let emotes = 0;
+  for (const seg of segs) {
+    if (seg.type === "emote" && seg.provider && seg.id) {
+      if (!emoteUrl(seg.provider, seg.id, false, seg.url)) return false; // unknown provider/url → text
+      emotes++;
+    } else if (seg.type === "text") {
+      if (String(seg.value || "").trim() !== "") return false; // real words present
+    } else {
+      return false;
+    }
+  }
+  return emotes > 0;
+}
+
+function hasClass(node, name) {
+  return String((node && node.className) || "").split(/\s+/).includes(name);
+}
+
+function addClass(node, name) {
+  if (!node || hasClass(node, name)) return;
+  node.className = `${String(node.className || "").trim()} ${name}`.trim();
+}
+
+function positiveFiniteNumber(value) {
+  const n = Number(value);
+  return Number.isFinite(n) && n > 0 ? n : 0;
+}
+
+function isWideEmoteAspect(width, height) {
+  return width > 0 && height > 0 && width / height >= BIG_EMOTE_WIDE_ASPECT;
+}
+
+function segmentWideAspect(seg) {
+  const width = positiveFiniteNumber(seg.width);
+  const height = positiveFiniteNumber(seg.height);
+  if (!width || !height) return null;
+  return isWideEmoteAspect(width, height);
+}
+
+function nearestAncestor(node, className) {
+  let cur = node && node.parentNode;
+  while (cur) {
+    if (hasClass(cur, className)) return cur;
+    cur = cur.parentNode;
+  }
+  return null;
+}
+
+function reserveWideBigEmoteGrid(grid) {
+  addClass(grid, "chat-emote-grid-wide");
+  grid.style.gridTemplateColumns = `repeat(${BIG_EMOTE_WIDE_COLUMNS}, var(--emote-big))`;
+}
+
+function markWideBigEmote(img) {
+  if (!img || hasClass(img, "chat-emote-overlay") || !hasClass(img, "chat-emote-big")) return;
+  addClass(img, "chat-emote-big-wide");
+
+  const stack = nearestAncestor(img, "chat-emote-big-stack");
+  if (stack) addClass(stack, "chat-emote-big-wide-stack");
+
+  const grid = nearestAncestor(img, "chat-emote-grid");
+  if (grid) reserveWideBigEmoteGrid(grid);
+}
+
+function installWideBigEmoteClassifier(img, seg, overlay) {
+  if (!img || overlay || seg.zeroWidth) return;
+  const metadataWide = segmentWideAspect(seg);
+  if (metadataWide === true) {
+    markWideBigEmote(img);
+    return;
+  }
+  if (metadataWide === false) return;
+
+  img.onload = () => {
+    const width = positiveFiniteNumber(img.naturalWidth);
+    const height = positiveFiniteNumber(img.naturalHeight);
+    if (isWideEmoteAspect(width, height)) markWideBigEmote(img);
+  };
+}
+
+function buildBigEmoteImg(seg, overlay = false) {
+  const img = document.createElement("img");
+  img.className = overlay ? "chat-emote-big chat-emote-overlay" : "chat-emote-big";
+  img.crossOrigin = "anonymous";
+  img.referrerPolicy = "no-referrer";
+  img.decoding = "async";
+  img.alt = seg.code || "";
+  // Local-first: prefer the overlay cache; fall back to CDN via two-stage onerror.
+  const localUrl = localEmoteUrl(seg.provider, seg.id);
+  const cdnUrl = emoteUrl(seg.provider, seg.id, true, seg.url);
+  img.dataset.pendingSrc = localUrl || cdnUrl;
+  // Two-stage onerror:
+  //   1. If the local cache 404d, swap to the CDN url (once, guarded by dataset).
+  //   2. If the CDN also fails (or there was no local url to begin with), show
+  //      the literal emote code as a fallback span.
+  img.onerror = () => {
+    if (!img.parentNode) return;
+    if (localUrl && !img.dataset.cdnFallback && cdnUrl) {
+      img.dataset.cdnFallback = "1";
+      img.src = cdnUrl;
+      return;
+    }
+    if (overlay) {
+      img.remove();
+      return;
+    }
+    const span = document.createElement("span");
+    span.className = "chat-emote-fallback";
+    span.textContent = seg.code || seg.shortcut || seg.text || seg.id || "";
+    img.parentNode.replaceChild(span, img);
+  };
+  installWideBigEmoteClassifier(img, seg, overlay);
+  return img;
+}
+
+function buildInlineEmoteImg(seg, overlay = false) {
+  const cdnUrl = emoteUrl(seg.provider, seg.id, false, seg.url);
+  const localUrl = localEmoteUrl(seg.provider, seg.id);
+  const firstUrl = localUrl || cdnUrl;
+  if (!firstUrl) return null;
+
+  const img = document.createElement("img");
+  img.className = overlay ? "chat-emote chat-emote-overlay" : "chat-emote";
+  img.crossOrigin = "anonymous";
+  img.referrerPolicy = "no-referrer";
+  img.decoding = "async";
+  img.alt = seg.code || "";
+  img.dataset.pendingSrc = firstUrl;
+  img.onerror = () => {
+    if (localUrl && !img.dataset.cdnFallback && cdnUrl) {
+      img.dataset.cdnFallback = "1";
+      img.src = cdnUrl;
+      return;
+    }
+    if (overlay) {
+      img.remove();
+      return;
+    }
+    const fallbackText = seg.code || seg.shortcut || seg.text || seg.id || "";
+    const t = document.createTextNode(fallbackText);
+    if (img.parentNode) img.parentNode.replaceChild(t, img);
+  };
+  return img;
+}
+
+function buildEmoteStack(seg, big) {
+  const stack = document.createElement(big ? "div" : "span");
+  stack.className = big ? "chat-emote-big-stack" : "chat-emote-stack";
+  const img = big ? buildBigEmoteImg(seg) : buildInlineEmoteImg(seg);
+  if (!img) return null;
+  stack.appendChild(img);
+  if (big && hasClass(img, "chat-emote-big-wide")) markWideBigEmote(img);
+  return stack;
+}
+
+function appendOverlayEmote(stack, seg, big) {
+  const img = big ? buildBigEmoteImg(seg, true) : buildInlineEmoteImg(seg, true);
+  if (img) stack.appendChild(img);
+}
+
+function emoteGroups(emotes) {
+  const groups = [];
+  for (const seg of emotes) {
+    const last = groups[groups.length - 1];
+    if (seg.zeroWidth && last) last.overlays.push(seg);
+    else groups.push({ base: seg, overlays: [] });
+  }
+  return groups;
+}
+
+function isSingleBaseEmoteOnlyMessage(segs) {
+  if (!isEmoteOnlyMessage(segs)) return false;
+  const groups = emoteGroups(
+    segs.filter((seg) => seg.type === "emote" && seg.provider && seg.id),
+  );
+  return groups.length === 1 && !groups[0].base.zeroWidth;
+}
+
+function pruneChatBox() {
+  const singleEmotes = Array.from(chatBox.children).filter((el) =>
+    hasClass(el, "chat-single-emote")
+  );
+  while (singleEmotes.length > 1) singleEmotes.shift().remove();
+
+  const normalLines = Array.from(chatBox.children).filter((el) =>
+    !hasClass(el, "chat-single-emote")
+  );
+  while (normalLines.length > CHAT_MAX) normalLines.shift().remove();
+}
+
+// Returns true if it rendered a big emote-only grid (so the caller can skip
+// shrinkWrap, which can't measure a grid).
+function appendSegments(parent, segments, fallbackText) {
+  const segs = Array.isArray(segments) && segments.length > 0
+    ? segments
+    : [{ type: "text", value: fallbackText }];
+
+  if (isEmoteOnlyMessage(segs)) {
+    const emotes = segs
+      .filter((s) => s.type === "emote" && s.provider && s.id && emoteUrl(s.provider, s.id, false, s.url))
+      .slice(0, BIG_EMOTE_MAX);
+    const groups = emoteGroups(emotes);
+    const grid = document.createElement("div");
+    grid.className = "chat-emote-grid";
+    // ≤3 columns: 1/2/3 emotes fill one row; 4+ wrap into more rows of 3.
+    const hasWide = groups.some((group) => segmentWideAspect(group.base) === true);
+    grid.style.gridTemplateColumns = `repeat(${
+      hasWide ? BIG_EMOTE_WIDE_COLUMNS : Math.min(groups.length, 3)
+    }, var(--emote-big))`;
+    if (hasWide) addClass(grid, "chat-emote-grid-wide");
+    for (const group of groups) {
+      const stack = buildEmoteStack(group.base, true);
+      if (!stack) continue;
+      for (const overlay of group.overlays) appendOverlayEmote(stack, overlay, true);
+      grid.appendChild(stack);
+      if (hasClass(stack, "chat-emote-big-wide-stack")) reserveWideBigEmoteGrid(grid);
+    }
+    parent.appendChild(grid);
+    return true;
+  }
+
+  let lastEmoteStack = null;
+  for (const seg of segs) {
+    if (seg.type === "emote" && seg.provider && seg.id) {
+      if (seg.zeroWidth && lastEmoteStack) {
+        appendOverlayEmote(lastEmoteStack, seg, false);
+        continue;
+      }
+      const stack = buildEmoteStack(seg, false);
+      if (stack) {
+        parent.appendChild(stack);
+        lastEmoteStack = stack;
+        continue;
+      }
+      // Unknown provider → fall through to text.
+      parent.appendChild(document.createTextNode(seg.code || ""));
+      lastEmoteStack = null;
+    } else {
+      const value = seg.value || "";
+      parent.appendChild(document.createTextNode(value));
+      if (String(value).trim() !== "") lastEmoteStack = null;
+    }
+  }
+  return false;
+}
+
+function roleBadges({ isOwner, isMod, isTwitchVip, isSubscriber, isGiftSupporter, earnedVip }) {
+  const badges = [];
+  if (isOwner) badges.push({ label: "HOST", kind: "owner" });
+  else if (isMod) badges.push({ label: "MOD", kind: "mod" });
+  if (isTwitchVip) badges.push({ label: "VIP", kind: "vip" });
+  else if (earnedVip) badges.push({ label: "E-VIP", kind: "earned" });
+  if (isGiftSupporter) badges.push({ label: "GIFT", kind: "gift" });
+  else if (isSubscriber) badges.push({ label: "SUB", kind: "sub" });
+  return badges.slice(0, 3);
+}
+
+function appendChat({
+  text,
+  author,
+  color,
+  source,
+  segments,
+  readableColor,
+  sigil,
+  tier,
+  tierLabel,
+  messageCount,
+  isOwner,
+  isMod,
+  isTwitchVip,
+  isSubscriber,
+  isGiftSupporter,
+  earnedVip
+}) {
+  if (!chatBox || !text) return;
+  if (isBridgeEcho(text)) return;
+  if (isDuplicateChat({ text, author, source })) return;
+  const p = source || "chat";
+  const li = document.createElement("li");
+  li.className = `chat-line chat-${p}`;
+
+  const authorEl = document.createElement("span");
+  authorEl.className = "chat-author";
+
+  // Use server-computed readableColor when present; fall back to raw color.
+  const nameColor = readableColor || color;
+  if (nameColor) authorEl.style.color = nameColor;
+
+  // Sigil chip — always rendered when sigil data is present (server computes it
+  // purely, so it should always be there for real chat messages).
+  if (sigil && sigil.initials && sigil.bg) {
+    const sigilEl = document.createElement("span");
+    sigilEl.className = "chat-sigil";
+    sigilEl.style.background = sigil.bg;
+    sigilEl.textContent = sigil.initials;
+    authorEl.appendChild(sigilEl);
+  }
+
+  const dotEl = document.createElement("span");
+  dotEl.className = `chat-platform-dot ${p}`;
+  authorEl.appendChild(dotEl);
+  authorEl.appendChild(document.createTextNode(author || "anon"));
+
+  for (const role of roleBadges({
+    isOwner,
+    isMod,
+    isTwitchVip,
+    isSubscriber,
+    isGiftSupporter,
+    earnedVip
+  })) {
+    const roleEl = document.createElement("span");
+    roleEl.className = `chat-role-badge ${role.kind}`;
+    roleEl.textContent = role.label;
+    authorEl.appendChild(roleEl);
+  }
+
+  // Tier / message-count badge — only when analytics are present.
+  if (tier && tierLabel) {
+    const badgeEl = document.createElement("span");
+    badgeEl.className = "chat-tier-badge";
+    // Show tier label; if message count known, append a ×count hint for regulars+.
+    const showCount = messageCount != null && messageCount > 0 &&
+      (tier === "regular" || tier === "core" || tier === "vip");
+    badgeEl.textContent = showCount ? `${tierLabel} ×${messageCount}` : tierLabel;
+    authorEl.appendChild(badgeEl);
+  }
+
+  const textEl = document.createElement("span");
+  textEl.className = "chat-text";
+  const segs = Array.isArray(segments) && segments.length > 0
+    ? segments
+    : [{ type: "text", value: text }];
+  const emoteOnly = appendSegments(textEl, segs, text);
+  if (emoteOnly) li.classList.add("chat-emote-only");
+  if (emoteOnly && isSingleBaseEmoteOnlyMessage(segs)) li.classList.add("chat-single-emote");
+
+  li.appendChild(authorEl);
+  li.appendChild(textEl);
+  chatBox.appendChild(li);
+
+  // CEF/Chromium only animates emotes (animated WebP/GIF) whose load begins
+  // while the <img> is connected to the document; an <img> whose src is set
+  // while detached decodes its first frame and freezes (previously this needed
+  // an OBS source reload to animate). Now that <li> is in the DOM, activate the
+  // deferred emote srcs so animated emotes actually play live.
+  for (const img of li.querySelectorAll("img[data-pending-src]")) {
+    const u = img.dataset.pendingSrc;
+    delete img.dataset.pendingSrc;
+    img.src = u;
+  }
+
+  pruneChatBox();
+
+  requestAnimationFrame(() => {
+    // Emote-only bubbles size to their fixed-width emote grid via fit-content;
+    // shrinkWrap measures text rects via a Range and can't read a grid — it
+    // would set the bubble too narrow and collapse the row — so skip it there.
+    if (!emoteOnly) shrinkWrap(li, CHAT_BUBBLE_MAX_PX);
+    li.classList.add("chat-shown");
+  });
+
+  const visibleMs = emoteOnly ? CHAT_FADE_MS : CHAT_TEXT_FADE_MS;
+  setTimeout(() => {
+    li.classList.add("chat-fading");
+    setTimeout(() => { if (li.parentNode === chatBox) chatBox.removeChild(li); }, 1500);
+  }, visibleMs);
+}
+
+// ── WebSocket connection to overlay server's unified chat feed ──
+let ws = null;
+let reconnectTimer = null;
+let lastMessageAt = Date.now();
+
+function connect() {
+  if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = null; }
+  ws = new WebSocket("ws://localhost:8080/chat");
+
+  ws.onopen = () => {
+    console.log("[chat-bubbles] connected");
+  };
+
+  ws.onmessage = (evt) => {
+    try {
+      const msg = JSON.parse(evt.data);
+      lastMessageAt = Date.now();
+      appendChat(msg);
+    } catch {}
+  };
+
+  ws.onclose = () => {
+    console.log("[chat-bubbles] disconnected — reconnecting in 3s");
+    reconnectTimer = setTimeout(connect, 3000);
+  };
+
+  ws.onerror = () => ws.close();
+}
+
+connect();
+
+// ── Idle-aware emote-index refresh reload ──────────────────────────────────
+// The overlay server re-indexes 7TV/BTTV/FFZ emotes every
+// OVERLAY_EMOTE_REFRESH_MS (default 30 min). Reloading in sync ensures newly-
+// animated 7TV emotes are served from the updated index rather than the static
+// stub synthesised at boot for unknown ids.
+//
+// Behavior: fire every 30 min; if chat has been idle >= 10s, reload immediately.
+// If chat is still active, poll every 2s and reload as soon as it goes idle OR
+// hard-reload once 60s of grace elapses (so a never-idle chat is not stuck).
+const RELOAD_INTERVAL_MS = (() => {
+  // Guard a malformed ?reloadMin= (NaN / <=0) so setInterval never gets a
+  // bogus delay and fires a reload storm on a live overlay.
+  const m = Number(new URLSearchParams(location.search).get("reloadMin"));
+  return Number.isFinite(m) && m > 0 ? m * 60 * 1000 : 30 * 60 * 1000;
+})();
+const IDLE_MS = 10_000;
+const GRACE_MS = 60_000;
+
+function maybeReload() {
+  if (Date.now() - lastMessageAt >= IDLE_MS) {
+    location.reload();
+    return;
+  }
+  // Chat is still active — poll every 2s until idle or until grace expires.
+  const deadline = Date.now() + GRACE_MS;
+  function poll() {
+    if (Date.now() - lastMessageAt >= IDLE_MS || Date.now() >= deadline) {
+      location.reload();
+      return;
+    }
+    setTimeout(poll, 2000);
+  }
+  setTimeout(poll, 2000);
+}
+
+setInterval(maybeReload, RELOAD_INTERVAL_MS);
+</script>
+</body>
+</html>

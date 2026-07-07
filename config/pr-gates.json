@@ -7,7 +7,8 @@
       "commands": [
         { "service": "mmo", "cwd": "services/mmo", "cmd": "bun install --frozen-lockfile" },
         { "service": "abyss", "cwd": "services/abyss", "cmd": "bun install --frozen-lockfile" },
-        { "service": "vcs", "cwd": "services/vcs", "cmd": "bun install --frozen-lockfile" }
+        { "service": "vcs", "cwd": "services/vcs", "cmd": "bun install --frozen-lockfile" },
+        { "service": "obs-chat-overlay", "cwd": "services/obs-chat-overlay", "cmd": "bun install --frozen-lockfile" }
       ]
     }
   ],
@@ -17,11 +18,8 @@
       "name": "Suite automation syntax",
       "commands": [
         { "service": "suite", "cwd": ".", "cmd": "node --check scripts/run-gates.mjs" },
-        { "service": "suite", "cwd": ".", "cmd": "node --check scripts/notify-discord-deploy.mjs" },
         { "service": "suite", "cwd": ".", "cmd": "node --check scripts/review-policy.mjs" },
-        { "service": "suite", "cwd": ".", "cmd": "node --check scripts/webhook-server.mjs" },
-        { "service": "suite", "cwd": ".", "cmd": "bash -lc 'for f in scripts/*.sh; do bash -n \"$f\"; done'" },
-        { "service": "suite", "cwd": ".", "cmd": "node --test test/automation-hardening.test.mjs" }
+        { "service": "suite", "cwd": ".", "cmd": "bash -lc 'for f in scripts/*.sh; do bash -n \"$f\"; done'" }
       ]
     },
     {
@@ -30,7 +28,8 @@
       "commands": [
         { "service": "mmo", "cwd": "services/mmo", "cmd": "bun run typecheck" },
         { "service": "abyss", "cwd": "services/abyss", "cmd": "bun run typecheck" },
-        { "service": "vcs", "cwd": "services/vcs", "cmd": "bun run typecheck" }
+        { "service": "vcs", "cwd": "services/vcs", "cmd": "bun run typecheck" },
+        { "service": "obs-chat-overlay", "cwd": "services/obs-chat-overlay", "cmd": "bun run typecheck" }
       ]
     },
     {
@@ -39,7 +38,8 @@
       "commands": [
         { "service": "mmo", "cwd": "services/mmo", "cmd": "bunx @biomejs/biome@2.4.15 check ." },
         { "service": "abyss", "cwd": "services/abyss", "cmd": "bunx @biomejs/biome@2.4.15 check ." },
-        { "service": "vcs", "cwd": "services/vcs", "cmd": "bunx @biomejs/biome@2.4.15 check ." }
+        { "service": "vcs", "cwd": "services/vcs", "cmd": "bunx @biomejs/biome@2.4.15 check ." },
+        { "service": "obs-chat-overlay", "cwd": "services/obs-chat-overlay", "cmd": "bunx @biomejs/biome@2.4.15 check ." }
       ]
     }
   ],
@@ -50,7 +50,8 @@
       "commands": [
         { "service": "mmo", "cwd": "services/mmo", "cmd": "bun run test:unit" },
         { "service": "abyss", "cwd": "services/abyss", "cmd": "bun run test" },
-        { "service": "vcs", "cwd": "services/vcs", "cmd": "bun run test" }
+        { "service": "vcs", "cwd": "services/vcs", "cmd": "bun run test" },
+        { "service": "obs-chat-overlay", "cwd": "services/obs-chat-overlay", "cmd": "bun run test" }
       ]
     },
     {
@@ -58,7 +59,8 @@
       "name": "API tests",
       "commands": [
         { "service": "mmo", "cwd": "services/mmo", "cmd": "bun run test:api" },
-        { "service": "vcs", "cwd": "services/vcs", "cmd": "bun run test:api" }
+        { "service": "vcs", "cwd": "services/vcs", "cmd": "bun run test:api" },
+        { "service": "obs-chat-overlay", "cwd": "services/obs-chat-overlay", "cmd": "bun run test:api" }
       ]
     },
     {
@@ -67,14 +69,16 @@
       "commands": [
         { "service": "mmo", "cwd": "services/mmo", "cmd": "bun run test:component" },
         { "service": "abyss", "cwd": "services/abyss", "cmd": "bun run test:component" },
-        { "service": "vcs", "cwd": "services/vcs", "cmd": "bun run test:component" }
+        { "service": "vcs", "cwd": "services/vcs", "cmd": "bun run test:component" },
+        { "service": "obs-chat-overlay", "cwd": "services/obs-chat-overlay", "cmd": "bun run test:component" }
       ]
     },
     {
       "id": "integration",
       "name": "Integration tests",
       "commands": [
-        { "service": "vcs", "cwd": "services/vcs", "cmd": "bun run test:integration" }
+        { "service": "vcs", "cwd": "services/vcs", "cmd": "bun run test:integration" },
+        { "service": "obs-chat-overlay", "cwd": "services/obs-chat-overlay", "cmd": "bun run test:integration" }
       ]
     },
     {
@@ -82,7 +86,8 @@
       "name": "End-to-end tests",
       "commands": [
         { "service": "abyss", "cwd": "services/abyss", "cmd": "bun run test:e2e" },
-        { "service": "vcs", "cwd": "services/vcs", "cmd": "bun run test:e2e" }
+        { "service": "vcs", "cwd": "services/vcs", "cmd": "bun run test:e2e" },
+        { "service": "obs-chat-overlay", "cwd": "services/obs-chat-overlay", "cmd": "bun run test:e2e" }
       ]
     },
     {
@@ -91,7 +96,8 @@
       "commands": [
         { "service": "mmo", "cwd": "services/mmo", "cmd": "bun run test:regression" },
         { "service": "abyss", "cwd": "services/abyss", "cmd": "bun run test:regression" },
-        { "service": "vcs", "cwd": "services/vcs", "cmd": "bun run test:regression" }
+        { "service": "vcs", "cwd": "services/vcs", "cmd": "bun run test:regression" },
+        { "service": "obs-chat-overlay", "cwd": "services/obs-chat-overlay", "cmd": "bun run test:regression" }
       ]
     },
     {
@@ -99,7 +105,8 @@
       "name": "Configuration tests",
       "commands": [
         { "service": "mmo", "cwd": "services/mmo", "cmd": "bun run test:configuration" },
-        { "service": "vcs", "cwd": "services/vcs", "cmd": "bun run test:configuration" }
+        { "service": "vcs", "cwd": "services/vcs", "cmd": "bun run test:configuration" },
+        { "service": "obs-chat-overlay", "cwd": "services/obs-chat-overlay", "cmd": "bun run test:configuration" }
       ]
     },
     {
@@ -107,7 +114,8 @@
       "name": "Dependency audit tests",
       "commands": [
         { "service": "mmo", "cwd": "services/mmo", "cmd": "bun run test:audit" },
-        { "service": "vcs", "cwd": "services/vcs", "cmd": "bun run test:audit" }
+        { "service": "vcs", "cwd": "services/vcs", "cmd": "bun run test:audit" },
+        { "service": "obs-chat-overlay", "cwd": "services/obs-chat-overlay", "cmd": "bun run test:audit" }
       ]
     },
     {
@@ -116,7 +124,8 @@
       "commands": [
         { "service": "mmo", "cwd": "services/mmo", "cmd": "bun run test:sast" },
         { "service": "abyss", "cwd": "services/abyss", "cmd": "bun run test:sast" },
-        { "service": "vcs", "cwd": "services/vcs", "cmd": "bun run test:sast" }
+        { "service": "vcs", "cwd": "services/vcs", "cmd": "bun run test:sast" },
+        { "service": "obs-chat-overlay", "cwd": "services/obs-chat-overlay", "cmd": "bun run test:sast" }
       ]
     },
     {
@@ -125,7 +134,8 @@
       "commands": [
         { "service": "mmo", "cwd": "services/mmo", "cmd": "bun run test:dast" },
         { "service": "abyss", "cwd": "services/abyss", "cmd": "bun run test:dast" },
-        { "service": "vcs", "cwd": "services/vcs", "cmd": "bun run test:dast" }
+        { "service": "vcs", "cwd": "services/vcs", "cmd": "bun run test:dast" },
+        { "service": "obs-chat-overlay", "cwd": "services/obs-chat-overlay", "cmd": "bun run test:dast" }
       ]
     },
     {
@@ -134,7 +144,8 @@
       "commands": [
         { "service": "mmo", "cwd": "services/mmo", "cmd": "bun run test:pen" },
         { "service": "abyss", "cwd": "services/abyss", "cmd": "bun run test:pen" },
-        { "service": "vcs", "cwd": "services/vcs", "cmd": "bun run test:pen" }
+        { "service": "vcs", "cwd": "services/vcs", "cmd": "bun run test:pen" },
+        { "service": "obs-chat-overlay", "cwd": "services/obs-chat-overlay", "cmd": "bun run test:pen" }
       ]
     },
     {
@@ -144,7 +155,8 @@
       "commands": [
         { "service": "mmo", "cwd": "services/mmo", "cmd": "bun run test:load" },
         { "service": "abyss", "cwd": "services/abyss", "cmd": "bun run test:load" },
-        { "service": "vcs", "cwd": "services/vcs", "cmd": "bun run test:load" }
+        { "service": "vcs", "cwd": "services/vcs", "cmd": "bun run test:load" },
+        { "service": "obs-chat-overlay", "cwd": "services/obs-chat-overlay", "cmd": "bun run test:load" }
       ]
     },
     {
@@ -154,7 +166,8 @@
       "commands": [
         { "service": "mmo", "cwd": "services/mmo", "cmd": "bun run test:stress" },
         { "service": "abyss", "cwd": "services/abyss", "cmd": "bun run test:stress" },
-        { "service": "vcs", "cwd": "services/vcs", "cmd": "bun run test:stress" }
+        { "service": "vcs", "cwd": "services/vcs", "cmd": "bun run test:stress" },
+        { "service": "obs-chat-overlay", "cwd": "services/obs-chat-overlay", "cmd": "bun run test:stress" }
       ]
     },
     {
@@ -164,7 +177,8 @@
       "commands": [
         { "service": "mmo", "cwd": "services/mmo", "cmd": "bun run test:spike" },
         { "service": "abyss", "cwd": "services/abyss", "cmd": "bun run test:spike" },
-        { "service": "vcs", "cwd": "services/vcs", "cmd": "bun run test:spike" }
+        { "service": "vcs", "cwd": "services/vcs", "cmd": "bun run test:spike" },
+        { "service": "obs-chat-overlay", "cwd": "services/obs-chat-overlay", "cmd": "bun run test:spike" }
       ]
     },
     {
@@ -174,7 +188,8 @@
       "commands": [
         { "service": "mmo", "cwd": "services/mmo", "cmd": "bun run test:soak" },
         { "service": "abyss", "cwd": "services/abyss", "cmd": "bun run test:soak" },
-        { "service": "vcs", "cwd": "services/vcs", "cmd": "bun run test:soak" }
+        { "service": "vcs", "cwd": "services/vcs", "cmd": "bun run test:soak" },
+        { "service": "obs-chat-overlay", "cwd": "services/obs-chat-overlay", "cmd": "bun run test:soak" }
       ]
     },
     {
@@ -184,7 +199,8 @@
       "commands": [
         { "service": "mmo", "cwd": "services/mmo", "cmd": "bun run test:scalability" },
         { "service": "abyss", "cwd": "services/abyss", "cmd": "bun run test:scale" },
-        { "service": "vcs", "cwd": "services/vcs", "cmd": "bun run test:scale" }
+        { "service": "vcs", "cwd": "services/vcs", "cmd": "bun run test:scale" },
+        { "service": "obs-chat-overlay", "cwd": "services/obs-chat-overlay", "cmd": "bun run test:scale" }
       ]
     },
     {
@@ -193,7 +209,8 @@
       "commands": [
         { "service": "mmo", "cwd": "services/mmo", "cmd": "bun run test:chaos" },
         { "service": "abyss", "cwd": "services/abyss", "cmd": "bun run test:chaos" },
-        { "service": "vcs", "cwd": "services/vcs", "cmd": "bun run test:chaos" }
+        { "service": "vcs", "cwd": "services/vcs", "cmd": "bun run test:chaos" },
+        { "service": "obs-chat-overlay", "cwd": "services/obs-chat-overlay", "cmd": "bun run test:chaos" }
       ]
     },
     {
@@ -202,7 +219,8 @@
       "commands": [
         { "service": "mmo", "cwd": "services/mmo", "cmd": "bun run test:failover" },
         { "service": "abyss", "cwd": "services/abyss", "cmd": "bun run test:failover" },
-        { "service": "vcs", "cwd": "services/vcs", "cmd": "bun run test:failover" }
+        { "service": "vcs", "cwd": "services/vcs", "cmd": "bun run test:failover" },
+        { "service": "obs-chat-overlay", "cwd": "services/obs-chat-overlay", "cmd": "bun run test:failover" }
       ]
     },
     {

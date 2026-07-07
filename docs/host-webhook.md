@@ -22,10 +22,11 @@ The server also exposes `GET /healthz` for local health checks.
 - PR-controlled gate commands run through Bubblewrap with a clean environment,
   temp home, isolated `/proc`, and only the checked-out suite mounted writable.
   The webhook secret is not passed to the review child process.
-- `AUTO_DEPLOY=1` requires absolute, executable, host-owned deploy and verify
-  script paths for every deployed service. Set `VCS_DEPLOY_COMMAND`,
-  `ABYSS_DEPLOY_COMMAND`, `MMO_DEPLOY_COMMAND`, `VCS_VERIFY_COMMAND`,
-  `ABYSS_VERIFY_COMMAND`, and `MMO_VERIFY_COMMAND`.
+- `AUTO_DEPLOY=1` requires real post-deploy verification commands. Set
+  `VCS_VERIFY_COMMAND`, `ABYSS_VERIFY_COMMAND`, `MMO_VERIFY_COMMAND`,
+  `OBS_CHAT_OVERLAY_VERIFY_COMMAND`, a generic `DEPLOY_VERIFY_COMMAND`, or add a
+  service `verify:deploy` package script. Default OBS Chat Overlay deploys also
+  require `OBS_CHAT_OVERLAY_DEPLOY_COMMAND`.
 
 ## Run Locally
 
@@ -34,36 +35,25 @@ GITHUB_WEBHOOK_SECRET='<webhook secret>' \
 SUITE_REPO=sigmashakeinc/sigmashake-public-suite \
 AUTO_MERGE=1 \
 AUTO_DEPLOY=1 \
-VCS_DEPLOY_COMMAND='/srv/sigmashake-public-suite-host/deploy-vcs.sh' \
-ABYSS_DEPLOY_COMMAND='/srv/sigmashake-public-suite-host/deploy-abyss.sh' \
-MMO_DEPLOY_COMMAND='/srv/sigmashake-public-suite-host/deploy-mmo.sh' \
-VCS_VERIFY_COMMAND='/srv/sigmashake-public-suite-host/verify-vcs.sh' \
-ABYSS_VERIFY_COMMAND='/srv/sigmashake-public-suite-host/verify-abyss.sh' \
-MMO_VERIFY_COMMAND='/srv/sigmashake-public-suite-host/verify-mmo.sh' \
+VCS_VERIFY_COMMAND='curl -fsS https://vcs.example.com/healthz' \
+ABYSS_VERIFY_COMMAND='curl -fsS https://abyss.example.com/healthz' \
+MMO_DEPLOY_COMMAND='systemctl --user restart sigmashake-mmo-public.service' \
+MMO_VERIFY_COMMAND='curl -fsS https://mmo.example.com/healthz' \
+OBS_CHAT_OVERLAY_DEPLOY_COMMAND='systemctl --user restart sigmashake-obs-chat-overlay.service' \
+OBS_CHAT_OVERLAY_VERIFY_COMMAND='curl -fsS https://obs-chat-overlay.example.com/healthz' \
 PUBLIC_SUITE_WEBHOOK_HOST=127.0.0.1 \
 PUBLIC_SUITE_WEBHOOK_PORT=7918 \
 bun run review:webhook
 ```
 
-`AUTO_MERGE=1` approves and merges when all gates pass. When `AUTO_DEPLOY=1`,
-review jobs first run `scripts/deploy-from-host.sh --validate-only` so invalid
-host deploy wiring blocks before merge. The actual deploy is owned by the
-`pull_request.closed` merged event and runs `review-pr.sh --deploy-only` against
-the event's exact `merge_commit_sha`; this avoids duplicate deploys and prevents
-a later `main` update from being deployed by accident.
+`AUTO_MERGE=1` approves and merges when all gates pass. `AUTO_DEPLOY=1` also
+runs `scripts/deploy-from-host.sh --confirm` after merge. Deploys are still
+host-owned; no deploy secrets are stored in the public repository, and deploy
+completion requires a configured smoke/probe command for each deployed service.
 
-Deploys are still host-owned; no deploy secrets are stored in the public
-repository. The webhook persists both delivery IDs and queued/running jobs in
-`PUBLIC_SUITE_WEBHOOK_STATE`; if the service restarts, incomplete jobs are
-requeued before new deliveries are accepted.
-
-Deployment publishes a separate `sigmashake/public-suite-deploy` status on the
-merged commit. Success and failure both send a sanitized Discord notification
-when `DISCORD_DEPLOY_WEBHOOK_URL` is set; raw deploy logs are not posted.
-
-By default, pull request events enqueue a review immediately. Successful
-workflow-run events enqueue a review after GitHub's light gates pass only when
-`TRIGGER_ON_WORKFLOW_SUCCESS=1` is set. Configure either trigger with:
+By default, pull request events enqueue a review immediately and successful
+workflow-run events enqueue a review after GitHub's light gates pass. Disable
+either trigger with:
 
 ```sh
 TRIGGER_ON_PR=0

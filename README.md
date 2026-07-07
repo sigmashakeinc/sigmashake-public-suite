@@ -5,33 +5,14 @@ Public collaboration monorepo for the SigmaShake stream service:
 - `services/mmo` - Sigma Shake MMO runtime and public game contracts.
 - `services/abyss` - Sigma Abyss Worker and public integration surface.
 - `services/vcs` - Viewer Collaboration System Worker, panel, bridge mocks, and public contracts.
+- `services/obs-chat-overlay` - OBS Chat Overlay public UI, bridge contract, and deployable overlay surface.
 
 This repository is generated from the public component mirrors. Private runtime
 state, Cloudflare production IDs, local operator paths, secrets, `.wrangler/`,
-`.sigmashake/`, dependency folders, build output, and MMO runtime data are not
-allowed in the public suite.
-
-## Source Of Truth
-
-The suite is an aggregate package. The service directories under
-`services/mmo`, `services/abyss`, and `services/vcs` are generated snapshots of
-the public component mirrors and are replaced during suite publishing.
-
-Send component code, contracts, tests, and component docs to the component repo:
-
-- MMO: https://github.com/sigmashakeinc/sigmashake-mmo
-- Abyss: https://github.com/sigmashakeinc/sigmashake-abyss
-- VCS: https://github.com/sigmashakeinc/sigmashake-vcs
-
-Use this suite repo for aggregate scaffold, suite automation, host review/deploy
-automation, and root-level collaboration docs. A PR that edits a generated
-component snapshot in `services/{mmo,abyss,vcs}` is rejected by the host review
-policy because the change would be overwritten by the next mirror publish.
+`.sigmashake/`, dependency folders, build output, MMO runtime data, and OBS chat
+runtime/config artifacts are not allowed in the public suite.
 
 ## Contributor Flow
-
-See [CONTRIBUTING.md](CONTRIBUTING.md) for path-based PR routing. To verify the
-aggregate suite locally:
 
 ```sh
 bun install
@@ -68,8 +49,9 @@ until the host loop has completed all required gates.
 18. failover
 19. disaster-recovery
 
-Each gate contains the component commands that exist for MMO, Abyss, and VCS.
-Missing service directories are a packaging error in the generated public suite.
+Each gate contains the component commands that exist for MMO, Abyss, VCS, and
+OBS Chat Overlay. Missing service directories are a packaging error in the
+generated public suite.
 
 ## Host Automation
 
@@ -85,10 +67,8 @@ bun run review:webhook
 ```
 
 GitHub sends an event to the host, the host verifies the
-`X-Hub-Signature-256` HMAC, persists the delivery and job, runs the trusted
-gates, and merges only after deploy readiness has been validated. With
-`AUTO_DEPLOY=1`, the merged PR event deploys the exact `merge_commit_sha` and
-publishes a separate deploy status.
+`X-Hub-Signature-256` HMAC, queues the PR, runs the trusted gates, and deploys
+only after the PR has passed, merged, and the host checkout has advanced.
 
 Polling remains available as a fallback when inbound webhooks are not practical:
 
@@ -125,27 +105,24 @@ bash scripts/publish-public-suite.sh \
   --write-evidence /tmp/sigmashake-public-suite.env
 ```
 
-The publisher clones the public MMO, Abyss, and VCS mirrors into
-`services/`, scans the combined tree, and writes release evidence. Confirm mode
-pushes a clean snapshot to `sigmashakeinc/sigmashake-public-suite` after the
-required evidence lines are present.
+The publisher clones the public MMO, Abyss, VCS, and OBS Chat Overlay mirrors
+into `services/`, scans the combined tree, and writes release evidence including
+`obs_chat_overlay_sha=...`. Confirm mode pushes a clean snapshot to
+`sigmashakeinc/sigmashake-public-suite` after the required evidence lines are
+present.
 
 ## Deploying
 
-Deploys are host-only and sequential. Every deployed service must provide an
-absolute, executable, host-owned deploy command and verify command outside this
-repository.
+Deploys are host-only and sequential. The default VCS and Abyss commands call
+their public `bun run deploy` scripts. MMO and OBS Chat Overlay deploys are
+host-specific and must be provided through `MMO_DEPLOY_COMMAND` and
+`OBS_CHAT_OVERLAY_DEPLOY_COMMAND`.
 
 ```sh
-VCS_DEPLOY_COMMAND='/srv/sigmashake-public-suite-host/deploy-vcs.sh' \
-ABYSS_DEPLOY_COMMAND='/srv/sigmashake-public-suite-host/deploy-abyss.sh' \
-MMO_DEPLOY_COMMAND='/srv/sigmashake-public-suite-host/deploy-mmo.sh' \
-VCS_VERIFY_COMMAND='/srv/sigmashake-public-suite-host/verify-vcs.sh' \
-ABYSS_VERIFY_COMMAND='/srv/sigmashake-public-suite-host/verify-abyss.sh' \
-MMO_VERIFY_COMMAND='/srv/sigmashake-public-suite-host/verify-mmo.sh' \
+MMO_DEPLOY_COMMAND='systemctl --user restart sigmashake-mmo-public.service' \
+OBS_CHAT_OVERLAY_DEPLOY_COMMAND='systemctl --user restart sigmashake-obs-chat-overlay.service' \
   bash scripts/deploy-from-host.sh --confirm
 ```
 
 The deploy script refuses to run from a dirty checkout unless
-`--allow-dirty` is passed. `--validate-only` checks host deploy wiring without
-running service deploy scripts.
+`--allow-dirty` is passed.

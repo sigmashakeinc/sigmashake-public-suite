@@ -2,8 +2,9 @@
 
 ## Objective
 
-Package the public MMO, Sigma Abyss, and VCS surfaces into one monorepo that is
-easy to clone, test, review, merge, and deploy from a trusted maintainer host.
+Package the public MMO, Sigma Abyss, VCS, and OBS Chat Overlay surfaces into one
+monorepo that is easy to clone, test, review, merge, and deploy from a trusted
+maintainer host.
 
 ## Layout
 
@@ -12,6 +13,7 @@ services/
   mmo/
   abyss/
   vcs/
+  obs-chat-overlay/
 config/
   pr-gates.json
 scripts/
@@ -27,10 +29,6 @@ scripts/
 `services/` is generated during publishing from public component mirrors. The
 private mono checkout stores only the suite scaffold and automation.
 
-The component directories are immutable snapshots for suite PRs. Component
-code, contracts, tests, and component docs are reviewed in the public component
-mirrors first, then the suite is regenerated from those mirrors.
-
 ## Public Safety Boundary
 
 The combined suite is composed only from public component mirrors. The publisher
@@ -43,7 +41,9 @@ Blocked content includes:
 - local `/home/<user>` operator paths;
 - production tunnel URLs;
 - secret assignments for bridge, OBS, MMO, and Wrangler credentials;
-- private runtime folders and build output.
+- private runtime folders and build output;
+- OBS chat overlay runtime/config artifacts such as scene collections, OBS
+  profiles, websocket config, recordings, captures, screenshots, and chat logs.
 
 ## PR Gate Model
 
@@ -57,11 +57,6 @@ The host review loop executes the trusted manifest from the maintainer checkout
 against a temporary PR clone. A PR cannot weaken the automation that is judging
 it unless the maintainer explicitly allows automation changes.
 
-Generated component snapshot edits under `services/mmo`, `services/abyss`, and
-`services/vcs` are rejected by default. A maintainer override can inspect such
-changes manually, but the automated host loop refuses to merge or deploy while
-that override is set.
-
 The preferred trigger is a GitHub webhook delivered to `webhook-server.mjs`.
 Polling is only a fallback for hosts that cannot receive inbound webhook
 traffic.
@@ -71,12 +66,12 @@ traffic.
 Deploys are sequential and host-owned:
 
 1. run trusted gates;
-2. validate host deploy and verify command paths before merge when deployment is armed;
-3. merge the PR;
-4. deploy the exact merged commit SHA from the merged PR webhook event;
-5. deploy VCS;
-6. deploy Abyss;
-7. deploy MMO with a host-provided command;
+2. merge the PR;
+3. pull the updated public suite on the host;
+4. deploy VCS;
+5. deploy Abyss;
+6. deploy MMO with a host-provided command;
+7. deploy OBS Chat Overlay with a host-provided command;
 8. record failures immediately and stop on first failed service.
 
 The public repository never stores deploy secrets.
